@@ -1,0 +1,243 @@
+# -*- coding: utf-8 -*-
+"""
+解模型 (Solution)
+封装整个调度系统的状态，便于算法迭代中复制和回滚
+"""
+
+from typing import List, Dict, Set, Optional, TYPE_CHECKING
+import copy as copy_module
+
+if TYPE_CHECKING:
+    from .node import Node, Order
+    from .vehicle import Vehicle
+
+
+class Solution:
+    """
+    解类
+    封装完整的调度方案
+    
+    Attributes:
+        vehicles: 所有骑手列表
+        unassigned_orders: 未分配的订单列表
+        nodes: 所有节点字典 {node_id: Node}
+        orders: 所有订单字典 {order_id: Order}
+        depot: 配送站节点
+    """
+    
+    def __init__(
+        self,
+        vehicles: List['Vehicle'],
+        orders: List['Order'],
+        depot: 'Node'
+    ):
+        self.vehicles = vehicles
+        self.orders = {order.id: order for order in orders}
+        self.depot = depot
+        self.unassigned_orders: List['Order'] = list(orders)  # 初始时所有订单未分配
+        
+        # 构建节点字典
+        self.nodes: Dict[int, 'Node'] = {depot.id: depot}
+        for order in orders:
+            self.nodes[order.pickup_node.id] = order.pickup_node
+            self.nodes[order.delivery_node.id] = order.delivery_node
+        
+        # 缓存
+        self._total_cost: Optional[float] = None
+    
+    def invalidate_cache(self):
+        """使缓存失效"""
+        self._total_cost = None
+        for vehicle in self.vehicles:
+            vehicle.invalidate_cache()
+    
+    @property
+    def total_distance(self) -> float:
+        """总行驶距离"""
+        return sum(v.calculate_distance() for v in self.vehicles)
+    
+    @property
+    def total_time_violation(self) -> float:
+        """总时间窗违反量"""
+        return sum(v.calculate_time_violation() for v in self.vehicles)
+    
+    @property
+    def num_used_vehicles(self) -> int:
+        """使用的骑手数量"""
+        return sum(1 for v in self.vehicles if len(v.route) > 0)
+    
+    @property
+    def num_unassigned(self) -> int:
+        """未分配订单数量"""
+        return len(self.unassigned_orders)
+    
+    def calculate_cost(
+        self,
+        w_distance: float = 1.0,
+        w_time_penalty: float = 100.0,
+        w_unassigned: float = 1000.0,
+        w_vehicle: float = 50.0
+    ) -> float:
+        """
+        计算解的总成本
+        
+        Cost = w1 * Distance + w2 * TimePenalty + w3 * UnassignedPenalty + w4 * VehicleUsage
+        """
+        if self._total_cost is not None:
+            return self._total_cost
+        
+        distance_cost = w_distance * self.total_distance
+        time_penalty = w_time_penalty * self.total_time_violation
+        unassigned_penalty = w_unassigned * self.num_unassigned
+        vehicle_cost = w_vehicle * self.num_used_vehicles
+        
+        self._total_cost = distance_cost + time_penalty + unassigned_penalty + vehicle_cost
+        return self._total_cost
+    
+    def is_feasible(self) -> bool:
+        """检查解是否可行 (硬约束)"""
+        # 检查所有骑手路径
+        for vehicle in self.vehicles:
+            if not vehicle.is_feasible():
+                return False
+        
+        # 检查配对约束: 同一订单的取送点必须在同一辆车上
+        for order in self.orders.values():
+            if order in self.unassigned_orders:
+                continue
+            
+            pickup_vehicle = None
+            delivery_vehicle = None
+            
+            for vehicle in self.vehicles:
+                for node in vehicle.route:
+                    if node.id == order.pickup_node.id:
+                        pickup_vehicle = vehicle.id
+                    if node.id == order.delivery_node.id:
+                        delivery_vehicle = vehicle.id
+            
+            if pickup_vehicle != delivery_vehicle:
+                return False
+        
+        return True
+    
+    def get_assigned_orders(self) -> Set[int]:
+        """获取所有已分配订单的ID"""
+        assigned = set()
+        for vehicle in self.vehicles:
+            assigned.update(vehicle.get_order_ids())
+        return assigned
+    
+    def assign_order(self, order: 'Order', vehicle: 'Vehicle', 
+                     pickup_pos: int, delivery_pos: int) -> bool:
+        """
+        将订单分配给骑手
+        
+        Args:
+            order: 订单对象
+            vehicle: 目标骑手
+            pickup_pos: 取货点插入位置
+            delivery_pos: 送货点插入位置
+        
+        Returns:
+            是否分配成功
+        """
+        # 插入节点
+        success = vehicle.insert_order(
+            order.pickup_node, 
+            order.delivery_node,
+            pickup_pos, 
+            delivery_pos
+        )
+        
+        if success:
+            # 从未分配列表中移除
+            if order in self.unassigned_orders:
+                self.unassigned_orders.remove(order)
+            self.invalidate_cache()
+        
+        return success
+    
+    def unassign_order(self, order: 'Order') -> bool:
+        """
+        取消订单分配
+        
+        Returns:
+            是否成功
+        """
+        # 找到并移除订单
+        for vehicle in self.vehicles:
+            found = False
+            for node in vehicle.route:
+                if node.order_id == order.id:
+                    found = True
+                    break
+            
+            if found:
+                vehicle.remove_order(order.pickup_node, order.delivery_node)
+                if order not in self.unassigned_orders:
+                    self.unassigned_orders.append(order)
+                self.invalidate_cache()
+                return True
+        
+        return False
+    
+    def get_order_by_id(self, order_id: int) -> Optional['Order']:
+        """根据ID获取订单"""
+        return self.orders.get(order_id)
+    
+    def get_node_by_id(self, node_id: int) -> Optional['Node']:
+        """根据ID获取节点"""
+        return self.nodes.get(node_id)
+    
+    def find_order_vehicle(self, order: 'Order') -> Optional['Vehicle']:
+        """找到订单所在的骑手"""
+        for vehicle in self.vehicles:
+            if order.id in vehicle.get_order_ids():
+                return vehicle
+        return None
+    
+    def copy(self) -> 'Solution':
+        """
+        创建解的深拷贝
+        这是ALNS算法中最关键的操作之一
+        """
+        # 深拷贝骑手 (包含路径)
+        new_vehicles = [v.copy() for v in self.vehicles]
+        
+        # 创建新的订单列表引用 (订单对象本身可以共享)
+        from .node import Order
+        new_orders = list(self.orders.values())
+        
+        new_solution = Solution.__new__(Solution)
+        new_solution.vehicles = new_vehicles
+        new_solution.orders = self.orders.copy()
+        new_solution.depot = self.depot
+        new_solution.nodes = self.nodes.copy()
+        new_solution.unassigned_orders = list(self.unassigned_orders)
+        new_solution._total_cost = None
+        
+        return new_solution
+    
+    def get_statistics(self) -> Dict:
+        """获取解的统计信息"""
+        return {
+            'total_cost': self.calculate_cost(),
+            'total_distance': self.total_distance,
+            'total_time_violation': self.total_time_violation,
+            'num_vehicles_used': self.num_used_vehicles,
+            'num_unassigned': self.num_unassigned,
+            'is_feasible': self.is_feasible()
+        }
+    
+    def __repr__(self) -> str:
+        lines = [f"Solution (Cost: {self.calculate_cost():.2f})"]
+        lines.append(f"  Used vehicles: {self.num_used_vehicles}/{len(self.vehicles)}")
+        lines.append(f"  Unassigned orders: {self.num_unassigned}")
+        lines.append(f"  Total distance: {self.total_distance:.2f}")
+        lines.append(f"  Time violation: {self.total_time_violation:.2f}")
+        lines.append("  Routes:")
+        for v in self.vehicles:
+            if len(v.route) > 0:
+                lines.append(f"    {v}")
+        return "\n".join(lines)
