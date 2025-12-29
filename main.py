@@ -326,7 +326,7 @@ def main():
                        help='不显示可视化')
     
     args = parser.parse_args()
-    
+    print("i love you my baby")
     if args.demo:
         demo_mode()
     elif args.benchmark:
