@@ -22,7 +22,11 @@ def save_solution_to_json(
     solution: Solution,
     filename: str,
     output_dir: str = None,
-    include_statistics: bool = True
+    include_statistics: bool = True,
+    solver_name: str = None,
+    solve_time: float = None,
+    generation_time: float = None,
+    additional_info: dict = None
 ) -> str:
     """
     将解保存为JSON文件
@@ -32,6 +36,10 @@ def save_solution_to_json(
         filename: 文件名 (不含路径)
         output_dir: 输出目录
         include_statistics: 是否包含统计信息
+        solver_name: 求解器名称 (ALNS)
+        solve_time: 求解耗时(秒)
+        generation_time: 问题生成耗时(秒)
+        additional_info: 其他额外信息
     
     Returns:
         保存的文件路径
@@ -46,7 +54,11 @@ def save_solution_to_json(
         "metadata": {
             "timestamp": datetime.now().isoformat(),
             "num_orders": len(solution.orders),
-            "num_vehicles": len(solution.vehicles)
+            "num_vehicles": len(solution.vehicles),
+            "solver": solver_name or "Unknown",
+            "solve_time_seconds": solve_time,
+            "generation_time_seconds": generation_time,
+            "total_time_seconds": (solve_time or 0) + (generation_time or 0)
         },
         "depot": _node_to_dict(solution.depot),
         "orders": [
@@ -64,7 +76,10 @@ def save_solution_to_json(
                 "capacity": v.capacity,
                 "speed": v.speed,
                 "detour_factor": v.detour_factor,
-                "route": [_node_to_dict(n) for n in v.route]
+                "route": [_node_to_dict(n) for n in v.route],
+                "route_distance": v.calculate_distance(),
+                "route_time_violation": v.calculate_time_violation(),
+                "num_orders": len(v.get_order_ids())
             }
             for v in solution.vehicles
         ],
@@ -73,6 +88,10 @@ def save_solution_to_json(
     
     if include_statistics:
         data["statistics"] = solution.get_statistics()
+    
+    # 添加额外信息
+    if additional_info:
+        data["additional_info"] = additional_info
     
     # 保存文件
     filepath = os.path.join(output_dir, filename)

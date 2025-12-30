@@ -10,6 +10,7 @@ PDPTW (带时间窗的取送货路径问题)
 import os
 import sys
 import time
+import json
 import argparse
 from datetime import datetime
 
@@ -55,40 +56,48 @@ def run_experiment(
         visualize: 是否可视化
         experiment_name: 实验名称
     """
+    solver_name = "ALNS"
+    
     print("=" * 70)
-    print("   外卖配送路径规划系统 (PDPTW + ALNS)")
+    print(f"   外卖配送路径规划系统 (PDPTW + {solver_name})")
     print("=" * 70)
-    print(f"订单数量: {num_orders}")
-    print(f"骑手数量: {num_vehicles}")
-    print(f"最大迭代: {max_iterations}")
-    print(f"随机种子: {random_seed}")
+    print(f"求解器:     {solver_name}")
+    print(f"订单数量:   {num_orders}")
+    print(f"骑手数量:   {num_vehicles}")
+    print(f"最大迭代:   {max_iterations}")
+    print(f"随机种子:   {random_seed}")
     print("-" * 70)
     
     # 1. 生成问题实例
     print("\n[步骤1] 生成问题实例...")
+    time_start_gen = time.time()
+    
     initial_solution = generate_problem_instance(
         num_orders=num_orders,
         num_vehicles=num_vehicles,
         random_seed=random_seed
     )
     
+    time_gen = time.time() - time_start_gen
+    
     print(f"  ✓ 配送站位置: ({initial_solution.depot.x:.1f}, {initial_solution.depot.y:.1f})")
     print(f"  ✓ 生成订单: {len(initial_solution.orders)} 个")
     print(f"  ✓ 生成骑手: {len(initial_solution.vehicles)} 个")
+    print(f"  ✓ 生成耗时: {time_gen:.3f} 秒")
     
-    # 2. 执行ALNS优化
-    print("\n[步骤2] 执行ALNS优化...")
-    start_time = time.time()
+    # 2. 执行优化
+    print(f"\n[步骤2] 执行 {solver_name} 优化...")
+    time_start_solve = time.time()
     
     alns = ALNS(
         max_iterations=max_iterations,
         random_seed=random_seed,
         verbose=True
     )
-    
     best_solution = alns.solve(initial_solution)
+    alns_stats = alns.get_statistics()
     
-    elapsed_time = time.time() - start_time
+    time_solve = time.time() - time_start_solve
     
     # 3. 验证结果
     print("\n[步骤3] 验证解的合法性...")
@@ -106,7 +115,6 @@ def run_experiment(
     print("-" * 70)
     
     stats = best_solution.get_statistics()
-    alns_stats = alns.get_statistics()
     
     print(f"  总成本:       {stats['total_cost']:.2f}")
     print(f"  总行驶距离:   {stats['total_distance']:.2f}")
@@ -115,7 +123,9 @@ def run_experiment(
     print(f"  未分配订单:   {stats['num_unassigned']}")
     print(f"  解可行性:     {'是' if stats['is_feasible'] else '否'}")
     print("-" * 70)
-    print(f"  运行时间:     {elapsed_time:.2f} 秒")
+    print(f"  问题生成:     {time_gen:.3f} 秒")
+    print(f"  求解时间:     {time_solve:.2f} 秒")
+    print(f"  总时间:       {time_gen + time_solve:.2f} 秒")
     print(f"  总迭代次数:   {alns_stats['total_iterations']}")
     print(f"  接受率:       {alns_stats['acceptance_rate']:.2%}")
     print(f"  成本改进:     {alns_stats['improvement']:.2f}")
@@ -146,11 +156,27 @@ def run_experiment(
         output_dir = os.path.join(PROJECT_ROOT, "data", "results", experiment_name)
         os.makedirs(output_dir, exist_ok=True)
         
-        # 保存解
+        # 准备额外信息
+        additional_info = {
+            "solver_type": "alns",
+            "num_orders": num_orders,
+            "num_vehicles": num_vehicles,
+            "random_seed": random_seed,
+            "max_iterations": max_iterations,
+            "total_iterations": alns_stats['total_iterations'],
+            "acceptance_rate": alns_stats['acceptance_rate'],
+            "improvement": alns_stats['improvement']
+        }
+        
+        # 保存解（包含时间信息）
         save_solution_to_json(
             best_solution,
             "solution.json",
-            output_dir
+            output_dir,
+            solver_name=solver_name,
+            solve_time=time_solve,
+            generation_time=time_gen,
+            additional_info=additional_info
         )
         
         # 保存问题实例
@@ -159,6 +185,29 @@ def run_experiment(
             "problem_instance.json",
             output_dir
         )
+        
+        # 保存详细统计信息
+        summary_data = {
+            "experiment_name": experiment_name,
+            "timestamp": datetime.now().isoformat(),
+            "solver": "ALNS",
+            "problem": {
+                "num_orders": num_orders,
+                "num_vehicles": num_vehicles,
+                "random_seed": random_seed
+            },
+            "timing": {
+                "generation_time_seconds": time_gen,
+                "solve_time_seconds": time_solve,
+                "total_time_seconds": time_gen + time_solve
+            },
+            "results": stats,
+            "solver_specific": additional_info
+        }
+        
+        summary_path = os.path.join(output_dir, "experiment_summary.json")
+        with open(summary_path, 'w', encoding='utf-8') as f:
+            json.dump(summary_data, f, indent=2, ensure_ascii=False)
         
         print(f"  ✓ 结果已保存至: {output_dir}")
     
@@ -171,7 +220,7 @@ def run_experiment(
         # 绘制路径图
         fig1 = visualizer.plot(
             best_solution,
-            title=f"外卖配送路径规划 (订单: {num_orders}, 骑手: {num_vehicles})",
+            title=f"外卖配送路径规划 (ALNS) (订单: {num_orders}, 骑手: {num_vehicles})",
             save_path=os.path.join(output_dir, "route_visualization.png") if save_results else None
         )
         
@@ -302,9 +351,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python main.py --demo                    # 运行演示
-  python main.py --orders 20 --vehicles 5  # 自定义规模
-  python main.py --benchmark               # 运行基准测试
+  python main.py --demo                              # 运行演示
+  python main.py --orders 20 --vehicles 5            # 自定义规模
+  python main.py --orders 100 --vehicles 20          # 大规模问题
+  python main.py --benchmark                         # 运行基准测试
         """
     )
     
