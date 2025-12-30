@@ -57,12 +57,28 @@ class Node:
         self.order_id = order_id  # 所属订单ID
     
     def distance_to(self, other: 'Node') -> float:
-        """计算到另一个节点的欧氏距离"""
+        """
+        计算到另一个节点的曼哈顿距离
+        
+        曼哈顿距离比欧氏距离更接近城市路网的真实距离，
+        因为骑手需要沿着街道行驶，不能穿墙直线通过
+        """
+        return abs(self.x - other.x) + abs(self.y - other.y)
+    
+    def euclidean_distance_to(self, other: 'Node') -> float:
+        """计算到另一个节点的欧氏距离 (备用)"""
         return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
     
-    def travel_time_to(self, other: 'Node', speed: float = 1.0) -> float:
-        """计算到另一个节点的行驶时间"""
-        return self.distance_to(other) / speed
+    def travel_time_to(self, other: 'Node', speed: float = 1.0, detour_factor: float = 1.0) -> float:
+        """
+        计算到另一个节点的行驶时间
+        
+        Args:
+            other: 目标节点
+            speed: 骑手速度 (单位距离/单位时间)
+            detour_factor: 路阻系数，实际路网距离 = 曼哈顿距离 * detour_factor
+        """
+        return self.distance_to(other) * detour_factor / speed
     
     def is_pickup(self) -> bool:
         """是否为取货点"""

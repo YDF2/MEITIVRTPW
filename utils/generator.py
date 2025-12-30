@@ -147,6 +147,7 @@ class DataGenerator:
             vehicle_id=vehicle_id,
             capacity=self.vehicle_capacity,
             speed=self.vehicle_speed,
+            detour_factor=config.DETOUR_FACTOR,
             depot=depot
         )
     

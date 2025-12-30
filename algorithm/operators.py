@@ -216,23 +216,45 @@ class DestroyOperators:
     
     def _calculate_relatedness(self, order1: Order, order2: Order) -> float:
         """
-        计算两个订单的相关性
+        计算两个订单的相关性 (Shaw Removal)
         
-        相关性 = 1 / (距离差 + 时间差)
+        相关性 = 1 / (归一化距离 + 归一化时间差)
+        
+        对距离和时间进行归一化处理，避免某一因素主导相似性计算：
+        - 距离归一化：除以 GRID_SIZE (最大可能距离约为 2*GRID_SIZE)
+        - 时间归一化：除以 TIME_HORIZON (最大可能时间差)
         """
         # 取货点距离
         pickup_dist = order1.pickup_node.distance_to(order2.pickup_node)
         # 送货点距离
         delivery_dist = order1.delivery_node.distance_to(order2.delivery_node)
-        # 时间窗差异
-        time_diff = abs(order1.pickup_node.ready_time - order2.pickup_node.ready_time)
+        # 时间窗差异 (取货点时间)
+        pickup_time_diff = abs(order1.pickup_node.ready_time - order2.pickup_node.ready_time)
+        # 时间窗差异 (送货点时间)
+        delivery_time_diff = abs(order1.delivery_node.due_time - order2.delivery_node.due_time)
         
-        # 归一化并组合
-        dist_factor = (pickup_dist + delivery_dist) / 2
-        time_factor = time_diff
+        # 归一化处理
+        # 曼哈顿距离最大值约为 2 * GRID_SIZE
+        max_distance = 2 * config.GRID_SIZE
+        # 时间差最大值为 TIME_HORIZON
+        max_time_diff = config.TIME_HORIZON
         
-        # 相关性 = 1 / (加权距离)
-        relatedness = 1.0 / (dist_factor + 0.1 * time_factor + 0.01)
+        # 归一化后的距离因子 (0-1 范围)
+        normalized_dist = (pickup_dist + delivery_dist) / (2 * max_distance)
+        # 归一化后的时间因子 (0-1 范围)
+        normalized_time = (pickup_time_diff + delivery_time_diff) / (2 * max_time_diff)
+        
+        # 权重系数：距离和时间同等重要
+        distance_weight = 0.5
+        time_weight = 0.5
+        
+        # 相关性 = 1 / (加权归一化距离 + epsilon)
+        # epsilon 防止除零
+        relatedness = 1.0 / (
+            distance_weight * normalized_dist + 
+            time_weight * normalized_time + 
+            0.001
+        )
         
         return relatedness
     

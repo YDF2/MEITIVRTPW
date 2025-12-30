@@ -19,6 +19,7 @@ class Vehicle:
         id: 骑手唯一标识
         capacity: 最大载重能力
         speed: 行驶速度
+        detour_factor: 路阻系数，实际路网距离 = 曼哈顿距离 * detour_factor
         depot: 起始配送站节点
         route: 访问节点列表 (不包含起始和结束的depot)
     """
@@ -28,11 +29,13 @@ class Vehicle:
         vehicle_id: int,
         capacity: float,
         speed: float = 1.0,
+        detour_factor: float = 1.0,
         depot: Optional['Node'] = None
     ):
         self.id = vehicle_id
         self.capacity = capacity
         self.speed = speed
+        self.detour_factor = detour_factor
         self.depot = depot
         self.route: List['Node'] = []  # 路径中的节点列表
         
@@ -92,8 +95,8 @@ class Vehicle:
             prev_node = full_route[i - 1]
             curr_node = full_route[i]
             
-            # 行驶时间
-            travel_time = prev_node.travel_time_to(curr_node, self.speed)
+            # 行驶时间 (考虑路阻系数)
+            travel_time = prev_node.travel_time_to(curr_node, self.speed, self.detour_factor)
             current_time += travel_time
             
             # 等待时间 (如果太早到达)
@@ -123,7 +126,7 @@ class Vehicle:
             prev_node = full_route[i - 1]
             curr_node = full_route[i]
             
-            travel_time = prev_node.travel_time_to(curr_node, self.speed)
+            travel_time = prev_node.travel_time_to(curr_node, self.speed, self.detour_factor)
             current_time += travel_time
             
             # 等待时间
@@ -233,6 +236,7 @@ class Vehicle:
             vehicle_id=self.id,
             capacity=self.capacity,
             speed=self.speed,
+            detour_factor=self.detour_factor,
             depot=self.depot  # depot是共享的
         )
         new_vehicle.route = [node.copy() for node in self.route]

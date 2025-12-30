@@ -63,6 +63,7 @@ def save_solution_to_json(
                 "id": v.id,
                 "capacity": v.capacity,
                 "speed": v.speed,
+                "detour_factor": v.detour_factor,
                 "route": [_node_to_dict(n) for n in v.route]
             }
             for v in solution.vehicles
@@ -134,6 +135,7 @@ def load_solution_from_json(filepath: str) -> Solution:
             vehicle_id=v_data["id"],
             capacity=v_data["capacity"],
             speed=v_data["speed"],
+            detour_factor=v_data.get("detour_factor", config.DETOUR_FACTOR),
             depot=depot
         )
         # 重建路径
@@ -255,6 +257,7 @@ def load_problem_from_json(filepath: str) -> Solution:
             vehicle_id=i,
             capacity=config.VEHICLE_CAPACITY,
             speed=config.VEHICLE_SPEED,
+            detour_factor=config.DETOUR_FACTOR,
             depot=depot
         )
         for i in range(num_vehicles)

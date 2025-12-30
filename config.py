@@ -4,26 +4,37 @@
 包含ALNS算法参数、权重系数、惩罚因子等
 """
 
+# ================== 物理映射说明 ==================
+# 假设 1 unit = 100 meters, 时间单位 = 分钟
+# 因此 GRID_SIZE=100 表示 10km x 10km 的配送区域
+
 # ================== 问题规模 ==================
 NUM_ORDERS = 20          # 订单数量 (每个订单包含1个取货点+1个送货点)
 NUM_VEHICLES = 5         # 骑手数量
-GRID_SIZE = 100          # 坐标范围 [0, GRID_SIZE]
+GRID_SIZE = 100          # 坐标范围 [0, GRID_SIZE]，即 10km x 10km 区域
 
 # ================== 骑手参数 ==================
-VEHICLE_CAPACITY = 10    # 骑手最大载重能力
-VEHICLE_SPEED = 1.0      # 骑手速度 (单位距离/单位时间)
+VEHICLE_CAPACITY = 6     # 骑手最大载重能力 (外卖场景通常3-6单)
+# 电动车速度约 20-25km/h ≈ 333-416m/min ≈ 3.3-4.2 units/min
+# 考虑红绿灯、起停、路阻等因素，取均速 20km/h
+VEHICLE_SPEED = 3.3      # 骑手速度 (单位距离/单位时间)
+
+# ================== 路阻系数 ==================
+# 实际路网距离通常是曼哈顿距离的 1.2-1.4 倍 (绕路、红绿灯等)
+DETOUR_FACTOR = 1.3
 
 # ================== 时间窗参数 ==================
-TIME_HORIZON = 480       # 时间跨度 (例如8小时 = 480分钟)
-SERVICE_TIME_PICKUP = 3  # 取餐服务时间 (分钟)
-SERVICE_TIME_DELIVERY = 2  # 送餐服务时间 (分钟)
+TIME_HORIZON = 240       # 时间跨度 (模拟午高峰 4小时 = 240分钟)
+SERVICE_TIME_PICKUP = 5  # 取餐服务时间 (分钟)，含停车进店时间
+SERVICE_TIME_DELIVERY = 4  # 送餐服务时间 (分钟)，含上楼等电梯时间
 TIME_WINDOW_WIDTH = 30   # 时间窗宽度 (分钟)
 
 # ================== 目标函数权重 ==================
 WEIGHT_DISTANCE = 1.0    # w1: 距离成本权重
-WEIGHT_TIME_PENALTY = 100.0  # w2: 超时惩罚权重 (软时间窗)
-WEIGHT_UNASSIGNED = 1000.0   # w3: 未分配订单惩罚权重
-WEIGHT_VEHICLE_USAGE = 50.0  # w4: 骑手使用成本权重
+# 迟到1分钟的惩罚相当于多跑 500米 (5 units)
+WEIGHT_TIME_PENALTY = 5.0    # w2: 超时惩罚权重 (软时间窗)
+WEIGHT_UNASSIGNED = 10000.0  # w3: 未分配订单惩罚权重 (绝对不允许甩单)
+WEIGHT_VEHICLE_USAGE = 200.0 # w4: 骑手使用成本权重 (尽量少用骑手)
 
 # ================== ALNS 算法参数 ==================
 MAX_ITERATIONS = 1000    # 最大迭代次数
