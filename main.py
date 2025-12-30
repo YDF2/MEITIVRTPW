@@ -22,9 +22,12 @@ import config
 from models.solution import Solution
 from models.node import Node, NodeType, Order
 from models.vehicle import Vehicle
+from algorithm.base_solver import BaseSolver
 from algorithm.alns import ALNS, solve_pdptw
 from algorithm.objective import ObjectiveFunction, check_validity
 from algorithm.greedy import GreedyInsertion
+from algorithm.divide_and_conquer import DivideAndConquerSolver
+from algorithm.alns_divide_conquer import ALNSDivideAndConquerSolver
 from utils.generator import DataGenerator, generate_problem_instance
 from utils.visualizer import SolutionVisualizer, plot_solution
 from utils.file_io import (
@@ -35,6 +38,80 @@ from utils.file_io import (
 )
 
 
+def create_solver(
+    solver_type: str,
+    max_iterations: int,
+    random_seed: int,
+    num_orders: int
+) -> BaseSolver:
+    """
+    求解器工厂函数 - 根据类型创建对应的求解器
+    
+    Args:
+        solver_type: 求解器类型
+            - 'alns': 标准ALNS（纯启发式）
+            - 'alns-gurobi': ALNS + Gurobi初始解
+            - 'gurobi-dc': Gurobi分治（MIP求解子问题）
+            - 'alns-dc': ALNS分治（ALNS求解子问题）
+        max_iterations: 最大迭代次数
+        random_seed: 随机种子
+        num_orders: 订单数量（用于自动调整参数）
+    
+    Returns:
+        求解器实例
+    """
+    if solver_type == 'alns':
+        # 标准ALNS（纯启发式）
+        return ALNS(
+            max_iterations=max_iterations,
+            random_seed=random_seed,
+            verbose=True,
+            use_gurobi=False
+        )
+    
+    elif solver_type == 'alns-gurobi':
+        # ALNS + Gurobi增强（Gurobi生成初始解）
+        return ALNS(
+            max_iterations=max_iterations,
+            random_seed=random_seed,
+            verbose=True,
+            use_gurobi=True,
+            gurobi_time_limit=30  # Gurobi初始解时间限制
+        )
+    
+    elif solver_type == 'gurobi-dc':
+        # Gurobi分治（使用Gurobi MIP求解子问题）
+        return DivideAndConquerSolver(
+            num_clusters=None,  # 自动确定
+            skip_global_optimization=True,
+            sub_iterations=min(300, max_iterations),
+            global_iterations=min(50, max_iterations // 10),
+            random_seed=random_seed,
+            verbose=True,
+            use_gurobi=True,  # 使用Gurobi
+            use_parallel=True,
+            max_workers=None
+        )
+    
+    elif solver_type == 'alns-dc':
+        # ALNS分治（使用ALNS求解子问题，可选Gurobi初始解）
+        return ALNSDivideAndConquerSolver(
+            num_clusters=None,  # 自动确定
+            skip_global_optimization=True,
+            sub_iterations=min(300, max_iterations),
+            global_iterations=min(50, max_iterations // 10),
+            random_seed=random_seed,
+            verbose=True,
+            use_gurobi_init=True,  # 使用Gurobi生成子问题初始解
+            gurobi_time_limit=20,
+            use_parallel=True,
+            max_workers=None
+        )
+    
+    else:
+        raise ValueError(f"未知的求解器类型: {solver_type}。支持的类型: alns, alns-gurobi, gurobi-dc, alns-dc")
+
+
 def run_experiment(
     num_orders: int = 20,
     num_vehicles: int = 5,
@@ -42,7 +119,9 @@ def run_experiment(
     random_seed: int = 42,
     save_results: bool = True,
     visualize: bool = True,
-    experiment_name: str = None
+    experiment_name: str = None,
+    use_divide_conquer: bool = None,
+    solver: str = None
 ):
     """
     运行完整的优化实验
@@ -55,11 +134,31 @@ def run_experiment(
         save_results: 是否保存结果
         visualize: 是否可视化
         experiment_name: 实验名称
+        use_divide_conquer: 是否使用分治策略（None时自动判断）
+        solver: 求解器类型 ('alns', 'alns-gurobi', 'gurobi-dc', 'alns-dc', None=自动)
     """
-    solver_name = "ALNS"
+    # 自动判断是否使用分治策略（如果没有指定solver）
+    if solver is None:
+        if use_divide_conquer is None:
+            use_divide_conquer = num_orders >= 100
+        
+        # 根据use_divide_conquer自动选择solver
+        if use_divide_conquer:
+            solver = 'gurobi-dc'
+        else:
+            solver = 'alns'
+    
+    # 根据solver类型确定显示名称
+    solver_display_names = {
+        'alns': 'ALNS（纯启发式）',
+        'alns-gurobi': 'ALNS+Gurobi（增强初始解）',
+        'gurobi-dc': 'Gurobi分治（MIP并行）',
+        'alns-dc': 'ALNS分治（ALNS并行）'
+    }
+    solver_name = solver_display_names.get(solver, solver)
     
     print("=" * 70)
-    print(f"   外卖配送路径规划系统 (PDPTW + {solver_name})")
+    print(f"   外卖配送路径规划系统 (PDPTW)")
     print("=" * 70)
     print(f"求解器:     {solver_name}")
     print(f"订单数量:   {num_orders}")
@@ -85,22 +184,31 @@ def run_experiment(
     print(f"  ✓ 生成骑手: {len(initial_solution.vehicles)} 个")
     print(f"  ✓ 生成耗时: {time_gen:.3f} 秒")
     
-    # 2. 执行优化
-    print(f"\n[步骤2] 执行 {solver_name} 优化...")
+    # 2. 创建并执行求解器
+    print(f"\n[步骤2] 创建 {solver_name} 求解器...")
     time_start_solve = time.time()
     
-    alns = ALNS(
+    # 创建求解器实例
+    solver_instance = create_solver(
+        solver_type=solver,
         max_iterations=max_iterations,
         random_seed=random_seed,
-        verbose=True
+        num_orders=num_orders
     )
-    best_solution = alns.solve(initial_solution)
-    alns_stats = alns.get_statistics()
     
+    # 执行求解
+    print(f"\n[步骤3] 执行优化...")
+    best_solution = solver_instance.solve(initial_solution)
     time_solve = time.time() - time_start_solve
     
-    # 3. 验证结果
-    print("\n[步骤3] 验证解的合法性...")
+    # 获取统计信息（如果可用）
+    try:
+        alns_stats = solver_instance.get_statistics()
+    except:
+        alns_stats = None
+    
+    # 4. 验证结果
+    print("\n[步骤4] 验证解的合法性...")
     is_valid, violations = check_validity(best_solution)
     
     if is_valid:
@@ -126,9 +234,15 @@ def run_experiment(
     print(f"  问题生成:     {time_gen:.3f} 秒")
     print(f"  求解时间:     {time_solve:.2f} 秒")
     print(f"  总时间:       {time_gen + time_solve:.2f} 秒")
-    print(f"  总迭代次数:   {alns_stats['total_iterations']}")
-    print(f"  接受率:       {alns_stats['acceptance_rate']:.2%}")
-    print(f"  成本改进:     {alns_stats['improvement']:.2f}")
+    
+    if alns_stats:
+        # 安全地访问统计信息（不同求解器返回的键可能不同）
+        if 'total_iterations' in alns_stats:
+            print(f"  总迭代次数:   {alns_stats['total_iterations']}")
+        if 'acceptance_rate' in alns_stats:
+            print(f"  接受率:       {alns_stats['acceptance_rate']:.2%}")
+        if 'improvement' in alns_stats:
+            print(f"  成本改进:     {alns_stats['improvement']:.2f}")
     
     # 5. 输出路径详情
     print("\n[步骤5] 骑手路径详情")
@@ -158,15 +272,18 @@ def run_experiment(
         
         # 准备额外信息
         additional_info = {
-            "solver_type": "alns",
+            "solver_type": solver,
             "num_orders": num_orders,
             "num_vehicles": num_vehicles,
             "random_seed": random_seed,
-            "max_iterations": max_iterations,
-            "total_iterations": alns_stats['total_iterations'],
-            "acceptance_rate": alns_stats['acceptance_rate'],
-            "improvement": alns_stats['improvement']
+            "max_iterations": max_iterations
         }
+        
+        if alns_stats:
+            # 安全地添加统计信息
+            for key in ['total_iterations', 'acceptance_rate', 'improvement']:
+                if key in alns_stats:
+                    additional_info[key] = alns_stats[key]
         
         # 保存解（包含时间信息）
         save_solution_to_json(
@@ -220,25 +337,30 @@ def run_experiment(
         # 绘制路径图
         fig1 = visualizer.plot(
             best_solution,
-            title=f"外卖配送路径规划 (ALNS) (订单: {num_orders}, 骑手: {num_vehicles})",
+            title=f"外卖配送路径规划 ({solver_name}) (订单: {num_orders}, 骑手: {num_vehicles})",
             save_path=os.path.join(output_dir, "route_visualization.png") if save_results else None
         )
         
-        # 绘制收敛曲线
-        fig2 = visualizer.plot_convergence(
-            alns.best_cost_history,
-            alns.current_cost_history,
-            title="ALNS 算法收敛曲线",
-            save_path=os.path.join(output_dir, "convergence.png") if save_results else None
-        )
-        
-        # 绘制算子权重
-        fig3 = visualizer.plot_operator_weights(
-            alns.destroy_ops.weights,
-            alns.repair_ops.weights,
-            title="算子权重分布",
-            save_path=os.path.join(output_dir, "operator_weights.png") if save_results else None
-        )
+        # 仅标准ALNS才绘制收敛曲线和算子权重
+        if solver == 'alns' or solver == 'alns-gurobi':
+            # 检查求解器实例是否有这些属性
+            if hasattr(solver_instance, 'best_cost_history') and hasattr(solver_instance, 'current_cost_history'):
+                # 绘制收敛曲线
+                fig2 = visualizer.plot_convergence(
+                    solver_instance.best_cost_history,
+                    solver_instance.current_cost_history,
+                    title="ALNS 算法收敛曲线",
+                    save_path=os.path.join(output_dir, "convergence.png") if save_results else None
+                )
+            
+            # 绘制算子权重
+            if hasattr(solver_instance, 'destroy_ops') and hasattr(solver_instance, 'repair_ops'):
+                fig3 = visualizer.plot_operator_weights(
+                    solver_instance.destroy_ops.weights,
+                    solver_instance.repair_ops.weights,
+                    title="算子权重分布",
+                    save_path=os.path.join(output_dir, "operator_weights.png") if save_results else None
+                )
         
         print("  ✓ 可视化图已生成")
         
@@ -347,14 +469,22 @@ def main():
     主函数 - 解析命令行参数并运行
     """
     parser = argparse.ArgumentParser(
-        description='外卖配送路径规划系统 (PDPTW + ALNS)',
+        description='外卖配送路径规划系统 (PDPTW + ALNS/Gurobi)',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
   python main.py --demo                              # 运行演示
   python main.py --orders 20 --vehicles 5            # 自定义规模
-  python main.py --orders 100 --vehicles 20          # 大规模问题
+  python main.py --orders 100 --vehicles 20          # 大规模（自动用gurobi-dc）
+  python main.py --orders 80 --solver alns-gurobi    # ALNS+Gurobi
+  python main.py --orders 200 --solver gurobi-dc     # Gurobi分治
   python main.py --benchmark                         # 运行基准测试
+
+求解器选项:
+  alns         : 标准ALNS（纯启发式，<100订单）
+  alns-gurobi  : ALNS+Gurobi（增强版，50-100订单）
+  gurobi-dc    : Gurobi分治（MIP并行，>100订单）[默认]
+  alns-dc      : ALNS分治（ALNS并行，>100订单）
         """
     )
     
@@ -370,12 +500,28 @@ def main():
                        help='ALNS最大迭代次数 (默认: 500)')
     parser.add_argument('--seed', type=int, default=42,
                        help='随机种子 (默认: 42)')
+    parser.add_argument('--solver', type=str, 
+                       choices=['alns', 'alns-gurobi', 'gurobi-dc', 'alns-dc'],
+                       help='求解器类型（默认自动选择）')
+    parser.add_argument('--divide-conquer', action='store_true',
+                       help='[已弃用] 使用--solver gurobi-dc代替')
+    parser.add_argument('--no-divide-conquer', action='store_true',
+                       help='[已弃用] 使用--solver alns代替')
     parser.add_argument('--no-save', action='store_true',
                        help='不保存结果')
     parser.add_argument('--no-viz', action='store_true',
                        help='不显示可视化')
     
     args = parser.parse_args()
+    
+    # 处理旧参数兼容性
+    solver = args.solver
+    if args.divide_conquer and solver is None:
+        print("警告: --divide-conquer已弃用，请使用--solver gurobi-dc")
+        solver = 'gurobi-dc'
+    if args.no_divide_conquer and solver is None:
+        print("警告: --no-divide-conquer已弃用，请使用--solver alns")
+        solver = 'alns'
  
     if args.demo:
         demo_mode()
@@ -388,7 +534,8 @@ def main():
             max_iterations=args.iterations,
             random_seed=args.seed,
             save_results=not args.no_save,
-            visualize=not args.no_viz
+            visualize=not args.no_viz,
+            solver=solver
         )
 
 

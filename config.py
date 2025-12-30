@@ -25,9 +25,9 @@ DETOUR_FACTOR = 1.3
 
 # ================== 时间窗参数 ==================
 TIME_HORIZON = 240       # 时间跨度 (模拟午高峰 4小时 = 240分钟)
-SERVICE_TIME_PICKUP = 5  # 取餐服务时间 (分钟)，含停车进店时间
-SERVICE_TIME_DELIVERY = 4  # 送餐服务时间 (分钟)，含上楼等电梯时间
-TIME_WINDOW_WIDTH = 30   # 时间窗宽度 (分钟)
+SERVICE_TIME_PICKUP = 10  # 取餐服务时间 (分钟)，含停车进店时间
+SERVICE_TIME_DELIVERY = 20  # 送餐服务时间 (分钟)，含上楼等电梯时间
+TIME_WINDOW_WIDTH =35   # 时间窗宽度 (分钟)
 
 # ================== 目标函数权重 ==================
 WEIGHT_DISTANCE = 1.0    # w1: 距离成本权重

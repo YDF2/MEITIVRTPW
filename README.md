@@ -1,8 +1,9 @@
 # FoodDelivery_Optimizer
 
-## 外卖配送路径规划系统 (PDPTW + ALNS)
+## 外卖配送路径规划系统 (PDPTW + ALNS + 分治策略)
 
 基于**自适应大邻域搜索 (ALNS)** 算法求解**带时间窗的取送货路径问题 (PDPTW)**。
+对于大规模问题（>=100订单），自动启用**分治策略 (Divide and Conquer)** 以提升求解效率。
 
 ## 项目结构
 
@@ -23,7 +24,8 @@ FoodDelivery_Optimizer/
 │   ├── alns.py           # ALNS主逻辑类
 │   ├── operators.py      # 破坏与修复算子 (Destroy & Repair)
 │   ├── objective.py      # 目标函数与约束检查
-│   └── greedy.py         # 初始解生成器
+│   ├── greedy.py         # 初始解生成器
+│   └── divide_and_conquer.py  # 分治策略求解器（大规模问题）
 │
 ├── utils/                # 工具层
 │   ├── __init__.py
@@ -38,8 +40,10 @@ FoodDelivery_Optimizer/
 ## 安装依赖
 
 ```bash
-pip install numpy matplotlib
+pip install numpy matplotlib scikit-learn
 ```
+
+**注意**：`scikit-learn` 用于大规模问题的K-Means聚类。
 
 ## 快速开始
 
