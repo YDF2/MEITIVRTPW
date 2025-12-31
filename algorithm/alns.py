@@ -32,7 +32,6 @@ class ALNS(BaseSolver):
     2. 多种破坏和修复算子
     3. 自适应选择算子 (根据历史表现调整权重)
     4. 使用模拟退火作为接受准则
-    5. 可选集成Gurobi用于初始解生成和修复优化
     """
     
     def __init__(
@@ -42,9 +41,7 @@ class ALNS(BaseSolver):
         cooling_rate: float = None,
         min_temperature: float = None,
         random_seed: int = None,
-        verbose: bool = True,
-        use_gurobi: bool = False,
-        gurobi_time_limit: int = 30
+        verbose: bool = True
     ):
         # 调用父类构造函数
         super().__init__(random_seed=random_seed, verbose=verbose)
@@ -54,21 +51,6 @@ class ALNS(BaseSolver):
         self.initial_temperature = initial_temperature or config.INITIAL_TEMPERATURE
         self.cooling_rate = cooling_rate or config.COOLING_RATE
         self.min_temperature = min_temperature or config.MIN_TEMPERATURE
-        
-        # Gurobi集成参数
-        self.use_gurobi = use_gurobi
-        self.gurobi_time_limit = gurobi_time_limit
-        
-        # 检查Gurobi可用性
-        if self.use_gurobi:
-            try:
-                from algorithm.gurobi_solver import GUROBI_AVAILABLE
-                if not GUROBI_AVAILABLE:
-                    print("警告: Gurobi不可用，将使用纯启发式算法")
-                    self.use_gurobi = False
-            except ImportError:
-                print("警告: 无法导入Gurobi求解器，将使用纯启发式算法")
-                self.use_gurobi = False
         
         # 随机种子
         if random_seed is not None:
@@ -110,28 +92,12 @@ class ALNS(BaseSolver):
         # 生成初始可行解
         if self.verbose:
             print("=" * 60)
-            print(f"ALNS 算法开始 {'(Gurobi增强)' if self.use_gurobi else ''}")
+            print(f"ALNS 算法开始")
             print("=" * 60)
             print("生成初始解...")
         
-        # 尝试使用Gurobi生成高质量初始解
-        if self.use_gurobi and len(initial_solution.orders) <= 100:
-            try:
-                from algorithm.gurobi_solver import solve_with_gurobi
-                if self.verbose:
-                    print(f"  使用 Gurobi 生成初始解 (时间限制: {self.gurobi_time_limit}秒)...")
-                current_solution = solve_with_gurobi(
-                    initial_solution,
-                    time_limit=self.gurobi_time_limit
-                )
-                if self.verbose:
-                    print("  ✓ Gurobi初始解生成完成")
-            except Exception as e:
-                if self.verbose:
-                    print(f"  Gurobi初始解失败: {str(e)}，使用贪心算法")
-                current_solution = self.greedy.generate_initial_solution(initial_solution)
-        else:
-            current_solution = self.greedy.generate_initial_solution(initial_solution)
+        # 使用贪心算法生成初始解
+        current_solution = self.greedy.generate_initial_solution(initial_solution)
         
         current_cost = self.objective.calculate(current_solution)
         

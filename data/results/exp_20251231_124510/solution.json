@@ -1,0 +1,2754 @@
+{
+  "metadata": {
+    "timestamp": "2025-12-31T12:45:10.824207",
+    "num_orders": 50,
+    "num_vehicles": 10,
+    "solver": "ALNS分治（ALNS并行）",
+    "solve_time_seconds": 7.342034101486206,
+    "generation_time_seconds": 0.0,
+    "total_time_seconds": 7.342034101486206
+  },
+  "depot": {
+    "id": 0,
+    "x": 50.0,
+    "y": 50.0,
+    "type": "DEPOT",
+    "demand": 0,
+    "ready_time": 0,
+    "due_time": 240,
+    "service_time": 0,
+    "pair_id": null,
+    "order_id": null
+  },
+  "orders": [
+    {
+      "id": 0,
+      "demand": 3,
+      "pickup": {
+        "id": 1,
+        "x": 63.942679845788376,
+        "y": 2.5010755222666936,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 106.05185483961779,
+        "due_time": 141.0518548396178,
+        "service_time": 10,
+        "pair_id": 2,
+        "order_id": 0
+      },
+      "delivery": {
+        "id": 2,
+        "x": 41.4456116827003,
+        "y": 0,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 129.58584458807601,
+        "due_time": 164.58584458807601,
+        "service_time": 20,
+        "pair_id": 1,
+        "order_id": 0
+      }
+    },
+    {
+      "id": 1,
+      "demand": 1,
+      "pickup": {
+        "id": 3,
+        "x": 8.693883262941615,
+        "y": 42.192181968527045,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 72.77116148688418,
+        "due_time": 107.77116148688418,
+        "service_time": 10,
+        "pair_id": 4,
+        "order_id": 1
+      },
+      "delivery": {
+        "id": 4,
+        "x": 0,
+        "y": 14.055979448887381,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 91.69502832271078,
+        "due_time": 126.69502832271078,
+        "service_time": 20,
+        "pair_id": 3,
+        "order_id": 1
+      }
+    },
+    {
+      "id": 2,
+      "demand": 1,
+      "pickup": {
+        "id": 5,
+        "x": 71.60196129224035,
+        "y": 70.13249735902359,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 40.059461985215435,
+        "due_time": 75.05946198521544,
+        "service_time": 10,
+        "pair_id": 6,
+        "order_id": 2
+      },
+      "delivery": {
+        "id": 6,
+        "x": 63.55394338840622,
+        "y": 65.05340198740895,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 67.44546840107412,
+        "due_time": 102.44546840107412,
+        "service_time": 20,
+        "pair_id": 5,
+        "order_id": 2
+      }
+    },
+    {
+      "id": 3,
+      "demand": 1,
+      "pickup": {
+        "id": 7,
+        "x": 69.81393949882269,
+        "y": 34.02505165179919,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 48.469614496218256,
+        "due_time": 83.46961449621826,
+        "service_time": 10,
+        "pair_id": 8,
+        "order_id": 3
+      },
+      "delivery": {
+        "id": 8,
+        "x": 35.36188948000085,
+        "y": 79.7463588724773,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 75.81762080023617,
+        "due_time": 110.81762080023617,
+        "service_time": 20,
+        "pair_id": 7,
+        "order_id": 3
+      }
+    },
+    {
+      "id": 4,
+      "demand": 2,
+      "pickup": {
+        "id": 9,
+        "x": 35.89793804846284,
+        "y": 34.39557224789711,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 66.15718267274532,
+        "due_time": 101.15718267274532,
+        "service_time": 10,
+        "pair_id": 10,
+        "order_id": 4
+      },
+      "delivery": {
+        "id": 10,
+        "x": 12.350024770664149,
+        "y": 0,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 88.78871146948228,
+        "due_time": 123.78871146948228,
+        "service_time": 20,
+        "pair_id": 9,
+        "order_id": 4
+      }
+    },
+    {
+      "id": 5,
+      "demand": 1,
+      "pickup": {
+        "id": 11,
+        "x": 7.880019807845818,
+        "y": 29.317828140709288,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 52.07544376804462,
+        "due_time": 87.07544376804462,
+        "service_time": 10,
+        "pair_id": 12,
+        "order_id": 5
+      },
+      "delivery": {
+        "id": 12,
+        "x": 20.743999757290155,
+        "y": 67.86300293438998,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 74.38911464067694,
+        "due_time": 109.38911464067694,
+        "service_time": 20,
+        "pair_id": 11,
+        "order_id": 5
+      }
+    },
+    {
+      "id": 6,
+      "demand": 2,
+      "pickup": {
+        "id": 13,
+        "x": 4.5824383655662215,
+        "y": 22.789827565154685,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 33.52188763598835,
+        "due_time": 68.52188763598835,
+        "service_time": 10,
+        "pair_id": 14,
+        "order_id": 6
+      },
+      "delivery": {
+        "id": 14,
+        "x": 0,
+        "y": 0,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 50.56612006061278,
+        "due_time": 85.56612006061277,
+        "service_time": 20,
+        "pair_id": 13,
+        "order_id": 6
+      }
+    },
+    {
+      "id": 7,
+      "demand": 3,
+      "pickup": {
+        "id": 15,
+        "x": 45.34103023684355,
+        "y": 83.41104266407503,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 96.50522511038784,
+        "due_time": 131.50522511038784,
+        "service_time": 10,
+        "pair_id": 16,
+        "order_id": 7
+      },
+      "delivery": {
+        "id": 16,
+        "x": 11.606439952452035,
+        "y": 68.93811268682717,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 120.54163137955886,
+        "due_time": 155.54163137955885,
+        "service_time": 20,
+        "pair_id": 15,
+        "order_id": 7
+      }
+    },
+    {
+      "id": 8,
+      "demand": 3,
+      "pickup": {
+        "id": 17,
+        "x": 64.80353852465936,
+        "y": 60.913100566698816,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 23.529959101717687,
+        "due_time": 58.52995910171769,
+        "service_time": 10,
+        "pair_id": 18,
+        "order_id": 8
+      },
+      "delivery": {
+        "id": 18,
+        "x": 31.917403344469058,
+        "y": 83.82578036173373,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 45.675725075162305,
+        "due_time": 80.6757250751623,
+        "service_time": 20,
+        "pair_id": 17,
+        "order_id": 8
+      }
+    },
+    {
+      "id": 9,
+      "demand": 2,
+      "pickup": {
+        "id": 19,
+        "x": 68.81619584333131,
+        "y": 21.961517397026896,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 8.055064447096887,
+        "due_time": 43.05506444709689,
+        "service_time": 10,
+        "pair_id": 20,
+        "order_id": 9
+      },
+      "delivery": {
+        "id": 20,
+        "x": 51.2444692848635,
+        "y": 48.79287515626412,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 34.49111632723305,
+        "due_time": 69.49111632723304,
+        "service_time": 20,
+        "pair_id": 19,
+        "order_id": 9
+      }
+    },
+    {
+      "id": 10,
+      "demand": 2,
+      "pickup": {
+        "id": 21,
+        "x": 40.1164787022329,
+        "y": 6.618860521154724,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 103.37965498353253,
+        "due_time": 138.37965498353253,
+        "service_time": 10,
+        "pair_id": 22,
+        "order_id": 10
+      },
+      "delivery": {
+        "id": 22,
+        "x": 81.4300911207874,
+        "y": 13.33686566900495,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 126.06336891532305,
+        "due_time": 161.06336891532305,
+        "service_time": 20,
+        "pair_id": 21,
+        "order_id": 10
+      }
+    },
+    {
+      "id": 11,
+      "demand": 2,
+      "pickup": {
+        "id": 23,
+        "x": 39.56319010606643,
+        "y": 91.45475897405436,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 35.51436110793362,
+        "due_time": 70.51436110793361,
+        "service_time": 10,
+        "pair_id": 24,
+        "order_id": 11
+      },
+      "delivery": {
+        "id": 24,
+        "x": 35.44837536480631,
+        "y": 67.9427756238596,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 56.741723791196634,
+        "due_time": 91.74172379119663,
+        "service_time": 20,
+        "pair_id": 23,
+        "order_id": 11
+      }
+    },
+    {
+      "id": 12,
+      "demand": 2,
+      "pickup": {
+        "id": 25,
+        "x": 74.70138116522578,
+        "y": 42.84338272945797,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 143.61491203043917,
+        "due_time": 178.61491203043917,
+        "service_time": 10,
+        "pair_id": 26,
+        "order_id": 12
+      },
+      "delivery": {
+        "id": 26,
+        "x": 83.0546736597914,
+        "y": 29.043027100819067,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 158.50326432463072,
+        "due_time": 193.50326432463072,
+        "service_time": 20,
+        "pair_id": 25,
+        "order_id": 12
+      }
+    },
+    {
+      "id": 13,
+      "demand": 1,
+      "pickup": {
+        "id": 27,
+        "x": 9.090941217379388,
+        "y": 4.711637542473457,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 114.05942846826683,
+        "due_time": 149.05942846826684,
+        "service_time": 10,
+        "pair_id": 28,
+        "order_id": 13
+      },
+      "delivery": {
+        "id": 28,
+        "x": 0,
+        "y": 17.45624171278246,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 132.5026278042605,
+        "due_time": 167.5026278042605,
+        "service_time": 20,
+        "pair_id": 27,
+        "order_id": 13
+      }
+    },
+    {
+      "id": 14,
+      "demand": 3,
+      "pickup": {
+        "id": 29,
+        "x": 38.476731167450005,
+        "y": 59.58884283611281,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 79.6645290550014,
+        "due_time": 114.6645290550014,
+        "service_time": 10,
+        "pair_id": 30,
+        "order_id": 14
+      },
+      "delivery": {
+        "id": 30,
+        "x": 35.28171994591773,
+        "y": 34.73025483429413,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 108.51314628259759,
+        "due_time": 143.51314628259757,
+        "service_time": 20,
+        "pair_id": 29,
+        "order_id": 14
+      }
+    },
+    {
+      "id": 15,
+      "demand": 2,
+      "pickup": {
+        "id": 31,
+        "x": 72.07218193601946,
+        "y": 68.17103690265748,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 92.29849899549237,
+        "due_time": 127.29849899549237,
+        "service_time": 10,
+        "pair_id": 32,
+        "order_id": 15
+      },
+      "delivery": {
+        "id": 32,
+        "x": 75.76921497689898,
+        "y": 44.853555897911754,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 109.45266500209,
+        "due_time": 144.45266500209,
+        "service_time": 20,
+        "pair_id": 31,
+        "order_id": 15
+      }
+    },
+    {
+      "id": 16,
+      "demand": 3,
+      "pickup": {
+        "id": 33,
+        "x": 15.815775434466971,
+        "y": 0.324531610172929,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 139.95188623729646,
+        "due_time": 174.95188623729646,
+        "service_time": 10,
+        "pair_id": 34,
+        "order_id": 16
+      },
+      "delivery": {
+        "id": 34,
+        "x": 38.02498156545805,
+        "y": 22.292598498765347,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 165.19113021833775,
+        "due_time": 200.19113021833775,
+        "service_time": 20,
+        "pair_id": 33,
+        "order_id": 16
+      }
+    },
+    {
+      "id": 17,
+      "demand": 1,
+      "pickup": {
+        "id": 35,
+        "x": 91.26278393448204,
+        "y": 87.05185698367669,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 87.69171044709681,
+        "due_time": 122.69171044709681,
+        "service_time": 10,
+        "pair_id": 36,
+        "order_id": 17
+      },
+      "delivery": {
+        "id": 36,
+        "x": 71.10726307934533,
+        "y": 100,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 104.95116442379248,
+        "due_time": 139.95116442379248,
+        "service_time": 20,
+        "pair_id": 35,
+        "order_id": 17
+      }
+    },
+    {
+      "id": 18,
+      "demand": 2,
+      "pickup": {
+        "id": 37,
+        "x": 53.937903011962575,
+        "y": 77.86264786305583,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 46.67847220867293,
+        "due_time": 81.67847220867293,
+        "service_time": 10,
+        "pair_id": 38,
+        "order_id": 18
+      },
+      "delivery": {
+        "id": 38,
+        "x": 56.97327023148032,
+        "y": 27.91983747585018,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 71.84058293882396,
+        "due_time": 106.84058293882396,
+        "service_time": 20,
+        "pair_id": 37,
+        "order_id": 18
+      }
+    },
+    {
+      "id": 19,
+      "demand": 1,
+      "pickup": {
+        "id": 39,
+        "x": 87.87218778231842,
+        "y": 83.16655293611794,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 126.43338228538184,
+        "due_time": 161.43338228538184,
+        "service_time": 10,
+        "pair_id": 40,
+        "order_id": 19
+      },
+      "delivery": {
+        "id": 40,
+        "x": 68.62360032258456,
+        "y": 38.959069585536696,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 155.37237119134173,
+        "due_time": 190.37237119134173,
+        "service_time": 20,
+        "pair_id": 39,
+        "order_id": 19
+      }
+    },
+    {
+      "id": 20,
+      "demand": 3,
+      "pickup": {
+        "id": 41,
+        "x": 73.19075948446277,
+        "y": 81.60232534200885,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 18.10951365894355,
+        "due_time": 53.10951365894355,
+        "service_time": 10,
+        "pair_id": 42,
+        "order_id": 20
+      },
+      "delivery": {
+        "id": 42,
+        "x": 100,
+        "y": 84.87294229496041,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 41.3045301138909,
+        "due_time": 76.3045301138909,
+        "service_time": 20,
+        "pair_id": 41,
+        "order_id": 20
+      }
+    },
+    {
+      "id": 21,
+      "demand": 3,
+      "pickup": {
+        "id": 43,
+        "x": 16.512695897412765,
+        "y": 52.7673787418254,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 133.76354299231346,
+        "due_time": 168.76354299231346,
+        "service_time": 10,
+        "pair_id": 44,
+        "order_id": 21
+      },
+      "delivery": {
+        "id": 44,
+        "x": 27.172087645675656,
+        "y": 99.20366934257092,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 158.86884692502957,
+        "due_time": 193.86884692502957,
+        "service_time": 20,
+        "pair_id": 43,
+        "order_id": 21
+      }
+    },
+    {
+      "id": 22,
+      "demand": 1,
+      "pickup": {
+        "id": 45,
+        "x": 20.11510633896959,
+        "y": 31.171629130089496,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 63.086412083688586,
+        "due_time": 98.08641208368859,
+        "service_time": 10,
+        "pair_id": 46,
+        "order_id": 22
+      },
+      "delivery": {
+        "id": 46,
+        "x": 69.63004200505907,
+        "y": 46.159434894034845,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 88.76325414481867,
+        "due_time": 123.76325414481867,
+        "service_time": 20,
+        "pair_id": 45,
+        "order_id": 22
+      }
+    },
+    {
+      "id": 23,
+      "demand": 3,
+      "pickup": {
+        "id": 47,
+        "x": 24.790561366600794,
+        "y": 6.402589632634492,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 84.73537647509055,
+        "due_time": 119.73537647509055,
+        "service_time": 10,
+        "pair_id": 48,
+        "order_id": 23
+      },
+      "delivery": {
+        "id": 48,
+        "x": 0,
+        "y": 11.794741875082469,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 102.42331700754607,
+        "due_time": 137.42331700754607,
+        "service_time": 20,
+        "pair_id": 47,
+        "order_id": 23
+      }
+    },
+    {
+      "id": 24,
+      "demand": 3,
+      "pickup": {
+        "id": 49,
+        "x": 63.11029572700989,
+        "y": 22.894178381115438,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 10.203458383966096,
+        "due_time": 45.203458383966094,
+        "service_time": 10,
+        "pair_id": 50,
+        "order_id": 24
+      },
+      "delivery": {
+        "id": 50,
+        "x": 100,
+        "y": 58.85771840649009,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 35.815332830613066,
+        "due_time": 70.81533283061307,
+        "service_time": 20,
+        "pair_id": 49,
+        "order_id": 24
+      }
+    },
+    {
+      "id": 25,
+      "demand": 2,
+      "pickup": {
+        "id": 51,
+        "x": 48.54144991504907,
+        "y": 53.923393139475465,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 82.97447755980959,
+        "due_time": 117.97447755980959,
+        "service_time": 10,
+        "pair_id": 52,
+        "order_id": 25
+      },
+      "delivery": {
+        "id": 52,
+        "x": 70.87670650314615,
+        "y": 92.16170065354923,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 106.39373187761748,
+        "due_time": 141.39373187761748,
+        "service_time": 20,
+        "pair_id": 51,
+        "order_id": 25
+      }
+    },
+    {
+      "id": 26,
+      "demand": 3,
+      "pickup": {
+        "id": 53,
+        "x": 80.74969977666434,
+        "y": 19.04099143618777,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 60.995321714868595,
+        "due_time": 95.9953217148686,
+        "service_time": 10,
+        "pair_id": 54,
+        "order_id": 26
+      },
+      "delivery": {
+        "id": 54,
+        "x": 40.44278119954667,
+        "y": 12.146109676825521,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 83.38695326875639,
+        "due_time": 118.38695326875639,
+        "service_time": 20,
+        "pair_id": 53,
+        "order_id": 26
+      }
+    },
+    {
+      "id": 27,
+      "demand": 1,
+      "pickup": {
+        "id": 55,
+        "x": 5.417118723217051,
+        "y": 65.34554882657916,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 104.8627567355303,
+        "due_time": 139.8627567355303,
+        "service_time": 10,
+        "pair_id": 56,
+        "order_id": 27
+      },
+      "delivery": {
+        "id": 56,
+        "x": 20.035093852715484,
+        "y": 21.406816234280527,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 130.87460695276428,
+        "due_time": 165.87460695276428,
+        "service_time": 20,
+        "pair_id": 55,
+        "order_id": 27
+      }
+    },
+    {
+      "id": 28,
+      "demand": 1,
+      "pickup": {
+        "id": 57,
+        "x": 24.865633392028563,
+        "y": 19.02089084408115,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 40.11050083203943,
+        "due_time": 75.11050083203943,
+        "service_time": 10,
+        "pair_id": 58,
+        "order_id": 28
+      },
+      "delivery": {
+        "id": 58,
+        "x": 19.726988175341752,
+        "y": 11.20905482752157,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 55.106629789681435,
+        "due_time": 90.10662978968143,
+        "service_time": 20,
+        "pair_id": 57,
+        "order_id": 28
+      }
+    },
+    {
+      "id": 29,
+      "demand": 1,
+      "pickup": {
+        "id": 59,
+        "x": 44.313074505345696,
+        "y": 86.13491047618305,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 143.89667545143263,
+        "due_time": 178.89667545143263,
+        "service_time": 10,
+        "pair_id": 60,
+        "order_id": 29
+      },
+      "delivery": {
+        "id": 60,
+        "x": 49.3456057503305,
+        "y": 41.193743428671176,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 170.61722715303168,
+        "due_time": 205.61722715303168,
+        "service_time": 20,
+        "pair_id": 59,
+        "order_id": 29
+      }
+    },
+    {
+      "id": 30,
+      "demand": 1,
+      "pickup": {
+        "id": 61,
+        "x": 92.63669830081275,
+        "y": 84.86957344143055,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 30.77961108468216,
+        "due_time": 65.77961108468216,
+        "service_time": 10,
+        "pair_id": 62,
+        "order_id": 30
+      },
+      "delivery": {
+        "id": 62,
+        "x": 59.26780936120416,
+        "y": 83.4336859865024,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 50.90075299084013,
+        "due_time": 85.90075299084013,
+        "service_time": 20,
+        "pair_id": 61,
+        "order_id": 30
+      }
+    },
+    {
+      "id": 31,
+      "demand": 3,
+      "pickup": {
+        "id": 63,
+        "x": 16.463712140152687,
+        "y": 0.2155378351426429,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 113.0586273783535,
+        "due_time": 148.0586273783535,
+        "service_time": 10,
+        "pair_id": 64,
+        "order_id": 31
+      },
+      "delivery": {
+        "id": 64,
+        "x": 5.505887898934006,
+        "y": 42.86734519107597,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 136.40314948415556,
+        "due_time": 171.40314948415556,
+        "service_time": 20,
+        "pair_id": 63,
+        "order_id": 31
+      }
+    },
+    {
+      "id": 32,
+      "demand": 1,
+      "pickup": {
+        "id": 65,
+        "x": 95.73176408596731,
+        "y": 99.54226894927139,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 22.290742839465235,
+        "due_time": 57.29074283946524,
+        "service_time": 10,
+        "pair_id": 66,
+        "order_id": 32
+      },
+      "delivery": {
+        "id": 66,
+        "x": 100,
+        "y": 100,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 38.22489934935652,
+        "due_time": 73.22489934935652,
+        "service_time": 20,
+        "pair_id": 65,
+        "order_id": 32
+      }
+    },
+    {
+      "id": 33,
+      "demand": 3,
+      "pickup": {
+        "id": 67,
+        "x": 57.91802908162562,
+        "y": 54.21952013742742,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 84.12157360209186,
+        "due_time": 119.12157360209186,
+        "service_time": 10,
+        "pair_id": 68,
+        "order_id": 33
+      },
+      "delivery": {
+        "id": 68,
+        "x": 82.71558511953202,
+        "y": 9.936047428175733,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 109.50150262571647,
+        "due_time": 144.50150262571645,
+        "service_time": 20,
+        "pair_id": 67,
+        "order_id": 33
+      }
+    },
+    {
+      "id": 34,
+      "demand": 1,
+      "pickup": {
+        "id": 69,
+        "x": 15.743272793948327,
+        "y": 96.07789032744503,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 85.68505532880398,
+        "due_time": 120.68505532880398,
+        "service_time": 10,
+        "pair_id": 70,
+        "order_id": 34
+      },
+      "delivery": {
+        "id": 70,
+        "x": 0,
+        "y": 64.66038642551734,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 109.18930640088578,
+        "due_time": 144.18930640088578,
+        "service_time": 20,
+        "pair_id": 69,
+        "order_id": 34
+      }
+    },
+    {
+      "id": 35,
+      "demand": 3,
+      "pickup": {
+        "id": 71,
+        "x": 40.37755513182775,
+        "y": 94.15961272290893,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 5.722799369625273,
+        "due_time": 40.72279936962527,
+        "service_time": 10,
+        "pair_id": 72,
+        "order_id": 35
+      },
+      "delivery": {
+        "id": 72,
+        "x": 47.34509614564624,
+        "y": 100,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 18.477822352629673,
+        "due_time": 53.47782235262967,
+        "service_time": 20,
+        "pair_id": 71,
+        "order_id": 35
+      }
+    },
+    {
+      "id": 36,
+      "demand": 2,
+      "pickup": {
+        "id": 73,
+        "x": 58.367228929122476,
+        "y": 52.278271553195886,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 103.13161931367573,
+        "due_time": 138.13161931367574,
+        "service_time": 10,
+        "pair_id": 74,
+        "order_id": 36
+      },
+      "delivery": {
+        "id": 74,
+        "x": 100,
+        "y": 22.70419149554953,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 128.6066913573305,
+        "due_time": 163.6066913573305,
+        "service_time": 20,
+        "pair_id": 73,
+        "order_id": 36
+      }
+    },
+    {
+      "id": 37,
+      "demand": 3,
+      "pickup": {
+        "id": 75,
+        "x": 13.087828212745645,
+        "y": 64.55007888376495,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 134.74573739205456,
+        "due_time": 169.74573739205456,
+        "service_time": 10,
+        "pair_id": 76,
+        "order_id": 37
+      },
+      "delivery": {
+        "id": 76,
+        "x": 8.810285469790845,
+        "y": 100,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 155.56605922039162,
+        "due_time": 190.56605922039162,
+        "service_time": 20,
+        "pair_id": 75,
+        "order_id": 37
+      }
+    },
+    {
+      "id": 38,
+      "demand": 1,
+      "pickup": {
+        "id": 77,
+        "x": 99.84544408544423,
+        "y": 99.60964478550945,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 38.18885972405779,
+        "due_time": 73.18885972405779,
+        "service_time": 10,
+        "pair_id": 78,
+        "order_id": 38
+      },
+      "delivery": {
+        "id": 78,
+        "x": 57.17151619540753,
+        "y": 70.92507601221348,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 66.85404728393198,
+        "due_time": 101.85404728393198,
+        "service_time": 20,
+        "pair_id": 77,
+        "order_id": 38
+      }
+    },
+    {
+      "id": 39,
+      "demand": 3,
+      "pickup": {
+        "id": 79,
+        "x": 87.92702424845427,
+        "y": 36.9527088738884,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 101.30974921258142,
+        "due_time": 136.30974921258144,
+        "service_time": 10,
+        "pair_id": 80,
+        "order_id": 39
+      },
+      "delivery": {
+        "id": 80,
+        "x": 53.70170748417747,
+        "y": 70.3272043378691,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 125.79583149517613,
+        "due_time": 160.79583149517612,
+        "service_time": 20,
+        "pair_id": 79,
+        "order_id": 39
+      }
+    },
+    {
+      "id": 40,
+      "demand": 2,
+      "pickup": {
+        "id": 81,
+        "x": 52.894069260227006,
+        "y": 66.78632037125836,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 14.916456276222457,
+        "due_time": 49.916456276222455,
+        "service_time": 10,
+        "pair_id": 82,
+        "order_id": 40
+      },
+      "delivery": {
+        "id": 82,
+        "x": 58.35429750919479,
+        "y": 100,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 42.4789955756943,
+        "due_time": 77.4789955756943,
+        "service_time": 20,
+        "pair_id": 81,
+        "order_id": 40
+      }
+    },
+    {
+      "id": 41,
+      "demand": 1,
+      "pickup": {
+        "id": 83,
+        "x": 11.54286704191022,
+        "y": 10.703597770941764,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 87.09549509235225,
+        "due_time": 122.09549509235225,
+        "service_time": 10,
+        "pair_id": 84,
+        "order_id": 41
+      },
+      "delivery": {
+        "id": 84,
+        "x": 16.865231130391813,
+        "y": 0,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 111.4477388351282,
+        "due_time": 146.4477388351282,
+        "service_time": 20,
+        "pair_id": 83,
+        "order_id": 41
+      }
+    },
+    {
+      "id": 42,
+      "demand": 3,
+      "pickup": {
+        "id": 85,
+        "x": 68.74971288013305,
+        "y": 85.29128153918974,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 130.77490265547436,
+        "due_time": 165.77490265547436,
+        "service_time": 10,
+        "pair_id": 86,
+        "order_id": 42
+      },
+      "delivery": {
+        "id": 86,
+        "x": 69.29061868993176,
+        "y": 60.40340674617915,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 148.31846388080407,
+        "due_time": 183.31846388080407,
+        "service_time": 20,
+        "pair_id": 85,
+        "order_id": 42
+      }
+    },
+    {
+      "id": 43,
+      "demand": 3,
+      "pickup": {
+        "id": 87,
+        "x": 42.357577256372636,
+        "y": 27.668022397225165,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 91.74432633139867,
+        "due_time": 126.74432633139867,
+        "service_time": 10,
+        "pair_id": 88,
+        "order_id": 43
+      },
+      "delivery": {
+        "id": 88,
+        "x": 0,
+        "y": 54.77994469918787,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 116.98413176320715,
+        "due_time": 151.98413176320713,
+        "service_time": 20,
+        "pair_id": 87,
+        "order_id": 43
+      }
+    },
+    {
+      "id": 44,
+      "demand": 1,
+      "pickup": {
+        "id": 89,
+        "x": 44.183551186085054,
+        "y": 70.56674467599908,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 136.08733522271604,
+        "due_time": 171.08733522271604,
+        "service_time": 10,
+        "pair_id": 90,
+        "order_id": 44
+      },
+      "delivery": {
+        "id": 90,
+        "x": 50.274237663559695,
+        "y": 31.754132734932575,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 159.90772769783356,
+        "due_time": 194.90772769783356,
+        "service_time": 20,
+        "pair_id": 89,
+        "order_id": 44
+      }
+    },
+    {
+      "id": 45,
+      "demand": 1,
+      "pickup": {
+        "id": 91,
+        "x": 54.55902892055223,
+        "y": 83.45950198860167,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 18.352154776627984,
+        "due_time": 53.352154776627984,
+        "service_time": 10,
+        "pair_id": 92,
+        "order_id": 45
+      },
+      "delivery": {
+        "id": 92,
+        "x": 62.809985569531634,
+        "y": 48.26888054534994,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 39.30517291562192,
+        "due_time": 74.30517291562191,
+        "service_time": 20,
+        "pair_id": 91,
+        "order_id": 45
+      }
+    },
+    {
+      "id": 46,
+      "demand": 2,
+      "pickup": {
+        "id": 93,
+        "x": 89.89246365264746,
+        "y": 21.007653833975404,
+        "type": "PICKUP",
+        "demand": 2,
+        "ready_time": 112.33673882948774,
+        "due_time": 147.33673882948773,
+        "service_time": 10,
+        "pair_id": 94,
+        "order_id": 46
+      },
+      "delivery": {
+        "id": 94,
+        "x": 64.84543757493991,
+        "y": 0,
+        "type": "DELIVERY",
+        "demand": -2,
+        "ready_time": 140.0194328585079,
+        "due_time": 175.0194328585079,
+        "service_time": 20,
+        "pair_id": 93,
+        "order_id": 46
+      }
+    },
+    {
+      "id": 47,
+      "demand": 1,
+      "pickup": {
+        "id": 95,
+        "x": 97.3837022637289,
+        "y": 74.94776111435392,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 23.40025446246316,
+        "due_time": 58.40025446246316,
+        "service_time": 10,
+        "pair_id": 96,
+        "order_id": 47
+      },
+      "delivery": {
+        "id": 96,
+        "x": 100,
+        "y": 48.62149433728979,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 49.39799506060109,
+        "due_time": 84.39799506060109,
+        "service_time": 20,
+        "pair_id": 95,
+        "order_id": 47
+      }
+    },
+    {
+      "id": 48,
+      "demand": 3,
+      "pickup": {
+        "id": 97,
+        "x": 88.14162046633244,
+        "y": 2.4786361898188725,
+        "type": "PICKUP",
+        "demand": 3,
+        "ready_time": 134.03748759095888,
+        "due_time": 169.03748759095888,
+        "service_time": 10,
+        "pair_id": 98,
+        "order_id": 48
+      },
+      "delivery": {
+        "id": 98,
+        "x": 100,
+        "y": 0,
+        "type": "DELIVERY",
+        "demand": -3,
+        "ready_time": 160.08219036970166,
+        "due_time": 195.08219036970166,
+        "service_time": 20,
+        "pair_id": 97,
+        "order_id": 48
+      }
+    },
+    {
+      "id": 49,
+      "demand": 1,
+      "pickup": {
+        "id": 99,
+        "x": 81.0749316574389,
+        "y": 26.680570959447202,
+        "type": "PICKUP",
+        "demand": 1,
+        "ready_time": 125.59201673847693,
+        "due_time": 160.59201673847693,
+        "service_time": 10,
+        "pair_id": 100,
+        "order_id": 49
+      },
+      "delivery": {
+        "id": 100,
+        "x": 100,
+        "y": 0,
+        "type": "DELIVERY",
+        "demand": -1,
+        "ready_time": 152.76388176523255,
+        "due_time": 187.76388176523255,
+        "service_time": 20,
+        "pair_id": 99,
+        "order_id": 49
+      }
+    }
+  ],
+  "vehicles": [
+    {
+      "id": 0,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 23,
+          "x": 39.56319010606643,
+          "y": 91.45475897405436,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 35.51436110793362,
+          "due_time": 70.51436110793361,
+          "service_time": 10,
+          "pair_id": 24,
+          "order_id": 11
+        },
+        {
+          "id": 71,
+          "x": 40.37755513182775,
+          "y": 94.15961272290893,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 5.722799369625273,
+          "due_time": 40.72279936962527,
+          "service_time": 10,
+          "pair_id": 72,
+          "order_id": 35
+        },
+        {
+          "id": 72,
+          "x": 47.34509614564624,
+          "y": 100,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 18.477822352629673,
+          "due_time": 53.47782235262967,
+          "service_time": 20,
+          "pair_id": 71,
+          "order_id": 35
+        },
+        {
+          "id": 15,
+          "x": 45.34103023684355,
+          "y": 83.41104266407503,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 96.50522511038784,
+          "due_time": 131.50522511038784,
+          "service_time": 10,
+          "pair_id": 16,
+          "order_id": 7
+        },
+        {
+          "id": 69,
+          "x": 15.743272793948327,
+          "y": 96.07789032744503,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 85.68505532880398,
+          "due_time": 120.68505532880398,
+          "service_time": 10,
+          "pair_id": 70,
+          "order_id": 34
+        },
+        {
+          "id": 16,
+          "x": 11.606439952452035,
+          "y": 68.93811268682717,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 120.54163137955886,
+          "due_time": 155.54163137955885,
+          "service_time": 20,
+          "pair_id": 15,
+          "order_id": 7
+        },
+        {
+          "id": 55,
+          "x": 5.417118723217051,
+          "y": 65.34554882657916,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 104.8627567355303,
+          "due_time": 139.8627567355303,
+          "service_time": 10,
+          "pair_id": 56,
+          "order_id": 27
+        },
+        {
+          "id": 70,
+          "x": 0,
+          "y": 64.66038642551734,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 109.18930640088578,
+          "due_time": 144.18930640088578,
+          "service_time": 20,
+          "pair_id": 69,
+          "order_id": 34
+        },
+        {
+          "id": 24,
+          "x": 35.44837536480631,
+          "y": 67.9427756238596,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 56.741723791196634,
+          "due_time": 91.74172379119663,
+          "service_time": 20,
+          "pair_id": 23,
+          "order_id": 11
+        },
+        {
+          "id": 56,
+          "x": 20.035093852715484,
+          "y": 21.406816234280527,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 130.87460695276428,
+          "due_time": 165.87460695276428,
+          "service_time": 20,
+          "pair_id": 55,
+          "order_id": 27
+        },
+        {
+          "id": 33,
+          "x": 15.815775434466971,
+          "y": 0.324531610172929,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 139.95188623729646,
+          "due_time": 174.95188623729646,
+          "service_time": 10,
+          "pair_id": 34,
+          "order_id": 16
+        },
+        {
+          "id": 34,
+          "x": 38.02498156545805,
+          "y": 22.292598498765347,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 165.19113021833775,
+          "due_time": 200.19113021833775,
+          "service_time": 20,
+          "pair_id": 33,
+          "order_id": 16
+        }
+      ],
+      "route_distance": 386.07842244291703,
+      "route_time_violation": 654.2802845452381,
+      "num_orders": 6
+    },
+    {
+      "id": 1,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 17,
+          "x": 64.80353852465936,
+          "y": 60.913100566698816,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 23.529959101717687,
+          "due_time": 58.52995910171769,
+          "service_time": 10,
+          "pair_id": 18,
+          "order_id": 8
+        },
+        {
+          "id": 18,
+          "x": 31.917403344469058,
+          "y": 83.82578036173373,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 45.675725075162305,
+          "due_time": 80.6757250751623,
+          "service_time": 20,
+          "pair_id": 17,
+          "order_id": 8
+        },
+        {
+          "id": 29,
+          "x": 38.476731167450005,
+          "y": 59.58884283611281,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 79.6645290550014,
+          "due_time": 114.6645290550014,
+          "service_time": 10,
+          "pair_id": 30,
+          "order_id": 14
+        },
+        {
+          "id": 51,
+          "x": 48.54144991504907,
+          "y": 53.923393139475465,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 82.97447755980959,
+          "due_time": 117.97447755980959,
+          "service_time": 10,
+          "pair_id": 52,
+          "order_id": 25
+        },
+        {
+          "id": 52,
+          "x": 70.87670650314615,
+          "y": 92.16170065354923,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 106.39373187761748,
+          "due_time": 141.39373187761748,
+          "service_time": 20,
+          "pair_id": 51,
+          "order_id": 25
+        },
+        {
+          "id": 85,
+          "x": 68.74971288013305,
+          "y": 85.29128153918974,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 130.77490265547436,
+          "due_time": 165.77490265547436,
+          "service_time": 10,
+          "pair_id": 86,
+          "order_id": 42
+        },
+        {
+          "id": 86,
+          "x": 69.29061868993176,
+          "y": 60.40340674617915,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 148.31846388080407,
+          "due_time": 183.31846388080407,
+          "service_time": 20,
+          "pair_id": 85,
+          "order_id": 42
+        },
+        {
+          "id": 30,
+          "x": 35.28171994591773,
+          "y": 34.73025483429413,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 108.51314628259759,
+          "due_time": 143.51314628259757,
+          "service_time": 20,
+          "pair_id": 29,
+          "order_id": 14
+        }
+      ],
+      "route_distance": 312.71172117746164,
+      "route_time_violation": 97.85064484148762,
+      "num_orders": 4
+    },
+    {
+      "id": 2,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 81,
+          "x": 52.894069260227006,
+          "y": 66.78632037125836,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 14.916456276222457,
+          "due_time": 49.916456276222455,
+          "service_time": 10,
+          "pair_id": 82,
+          "order_id": 40
+        },
+        {
+          "id": 82,
+          "x": 58.35429750919479,
+          "y": 100,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 42.4789955756943,
+          "due_time": 77.4789955756943,
+          "service_time": 20,
+          "pair_id": 81,
+          "order_id": 40
+        },
+        {
+          "id": 61,
+          "x": 92.63669830081275,
+          "y": 84.86957344143055,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 30.77961108468216,
+          "due_time": 65.77961108468216,
+          "service_time": 10,
+          "pair_id": 62,
+          "order_id": 30
+        },
+        {
+          "id": 35,
+          "x": 91.26278393448204,
+          "y": 87.05185698367669,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 87.69171044709681,
+          "due_time": 122.69171044709681,
+          "service_time": 10,
+          "pair_id": 36,
+          "order_id": 17
+        },
+        {
+          "id": 65,
+          "x": 95.73176408596731,
+          "y": 99.54226894927139,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 22.290742839465235,
+          "due_time": 57.29074283946524,
+          "service_time": 10,
+          "pair_id": 66,
+          "order_id": 32
+        },
+        {
+          "id": 77,
+          "x": 99.84544408544423,
+          "y": 99.60964478550945,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 38.18885972405779,
+          "due_time": 73.18885972405779,
+          "service_time": 10,
+          "pair_id": 78,
+          "order_id": 38
+        },
+        {
+          "id": 66,
+          "x": 100,
+          "y": 100,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 38.22489934935652,
+          "due_time": 73.22489934935652,
+          "service_time": 20,
+          "pair_id": 65,
+          "order_id": 32
+        },
+        {
+          "id": 36,
+          "x": 71.10726307934533,
+          "y": 100,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 104.95116442379248,
+          "due_time": 139.95116442379248,
+          "service_time": 20,
+          "pair_id": 35,
+          "order_id": 17
+        },
+        {
+          "id": 62,
+          "x": 59.26780936120416,
+          "y": 83.4336859865024,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 50.90075299084013,
+          "due_time": 85.90075299084013,
+          "service_time": 20,
+          "pair_id": 61,
+          "order_id": 30
+        },
+        {
+          "id": 78,
+          "x": 57.17151619540753,
+          "y": 70.92507601221348,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 66.85404728393198,
+          "due_time": 101.85404728393198,
+          "service_time": 20,
+          "pair_id": 77,
+          "order_id": 38
+        }
+      ],
+      "route_distance": 233.00868184980033,
+      "route_time_violation": 437.56990985116454,
+      "num_orders": 5
+    },
+    {
+      "id": 3,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 91,
+          "x": 54.55902892055223,
+          "y": 83.45950198860167,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 18.352154776627984,
+          "due_time": 53.352154776627984,
+          "service_time": 10,
+          "pair_id": 92,
+          "order_id": 45
+        },
+        {
+          "id": 37,
+          "x": 53.937903011962575,
+          "y": 77.86264786305583,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 46.67847220867293,
+          "due_time": 81.67847220867293,
+          "service_time": 10,
+          "pair_id": 38,
+          "order_id": 18
+        },
+        {
+          "id": 92,
+          "x": 62.809985569531634,
+          "y": 48.26888054534994,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 39.30517291562192,
+          "due_time": 74.30517291562191,
+          "service_time": 20,
+          "pair_id": 91,
+          "order_id": 45
+        },
+        {
+          "id": 25,
+          "x": 74.70138116522578,
+          "y": 42.84338272945797,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 143.61491203043917,
+          "due_time": 178.61491203043917,
+          "service_time": 10,
+          "pair_id": 26,
+          "order_id": 12
+        },
+        {
+          "id": 79,
+          "x": 87.92702424845427,
+          "y": 36.9527088738884,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 101.30974921258142,
+          "due_time": 136.30974921258144,
+          "service_time": 10,
+          "pair_id": 80,
+          "order_id": 39
+        },
+        {
+          "id": 26,
+          "x": 83.0546736597914,
+          "y": 29.043027100819067,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 158.50326432463072,
+          "due_time": 193.50326432463072,
+          "service_time": 20,
+          "pair_id": 25,
+          "order_id": 12
+        },
+        {
+          "id": 38,
+          "x": 56.97327023148032,
+          "y": 27.91983747585018,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 71.84058293882396,
+          "due_time": 106.84058293882396,
+          "service_time": 20,
+          "pair_id": 37,
+          "order_id": 18
+        },
+        {
+          "id": 80,
+          "x": 53.70170748417747,
+          "y": 70.3272043378691,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 125.79583149517613,
+          "due_time": 160.79583149517612,
+          "service_time": 20,
+          "pair_id": 79,
+          "order_id": 39
+        }
+      ],
+      "route_distance": 228.83003801532908,
+      "route_time_violation": 243.3484813094765,
+      "num_orders": 4
+    },
+    {
+      "id": 4,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 5,
+          "x": 71.60196129224035,
+          "y": 70.13249735902359,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 40.059461985215435,
+          "due_time": 75.05946198521544,
+          "service_time": 10,
+          "pair_id": 6,
+          "order_id": 2
+        },
+        {
+          "id": 6,
+          "x": 63.55394338840622,
+          "y": 65.05340198740895,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 67.44546840107412,
+          "due_time": 102.44546840107412,
+          "service_time": 20,
+          "pair_id": 5,
+          "order_id": 2
+        },
+        {
+          "id": 31,
+          "x": 72.07218193601946,
+          "y": 68.17103690265748,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 92.29849899549237,
+          "due_time": 127.29849899549237,
+          "service_time": 10,
+          "pair_id": 32,
+          "order_id": 15
+        },
+        {
+          "id": 41,
+          "x": 73.19075948446277,
+          "y": 81.60232534200885,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 18.10951365894355,
+          "due_time": 53.10951365894355,
+          "service_time": 10,
+          "pair_id": 42,
+          "order_id": 20
+        },
+        {
+          "id": 39,
+          "x": 87.87218778231842,
+          "y": 83.16655293611794,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 126.43338228538184,
+          "due_time": 161.43338228538184,
+          "service_time": 10,
+          "pair_id": 40,
+          "order_id": 19
+        },
+        {
+          "id": 42,
+          "x": 100,
+          "y": 84.87294229496041,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 41.3045301138909,
+          "due_time": 76.3045301138909,
+          "service_time": 20,
+          "pair_id": 41,
+          "order_id": 20
+        },
+        {
+          "id": 95,
+          "x": 97.3837022637289,
+          "y": 74.94776111435392,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 23.40025446246316,
+          "due_time": 58.40025446246316,
+          "service_time": 10,
+          "pair_id": 96,
+          "order_id": 47
+        },
+        {
+          "id": 96,
+          "x": 100,
+          "y": 48.62149433728979,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 49.39799506060109,
+          "due_time": 84.39799506060109,
+          "service_time": 20,
+          "pair_id": 95,
+          "order_id": 47
+        },
+        {
+          "id": 32,
+          "x": 75.76921497689898,
+          "y": 44.853555897911754,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 109.45266500209,
+          "due_time": 144.45266500209,
+          "service_time": 20,
+          "pair_id": 31,
+          "order_id": 15
+        },
+        {
+          "id": 40,
+          "x": 68.62360032258456,
+          "y": 38.959069585536696,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 155.37237119134173,
+          "due_time": 190.37237119134173,
+          "service_time": 20,
+          "pair_id": 39,
+          "order_id": 19
+        }
+      ],
+      "route_distance": 223.31456744228717,
+      "route_time_violation": 497.65107548672324,
+      "num_orders": 5
+    },
+    {
+      "id": 5,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 19,
+          "x": 68.81619584333131,
+          "y": 21.961517397026896,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 8.055064447096887,
+          "due_time": 43.05506444709689,
+          "service_time": 10,
+          "pair_id": 20,
+          "order_id": 9
+        },
+        {
+          "id": 7,
+          "x": 69.81393949882269,
+          "y": 34.02505165179919,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 48.469614496218256,
+          "due_time": 83.46961449621826,
+          "service_time": 10,
+          "pair_id": 8,
+          "order_id": 3
+        },
+        {
+          "id": 53,
+          "x": 80.74969977666434,
+          "y": 19.04099143618777,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 60.995321714868595,
+          "due_time": 95.9953217148686,
+          "service_time": 10,
+          "pair_id": 54,
+          "order_id": 26
+        },
+        {
+          "id": 54,
+          "x": 40.44278119954667,
+          "y": 12.146109676825521,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 83.38695326875639,
+          "due_time": 118.38695326875639,
+          "service_time": 20,
+          "pair_id": 53,
+          "order_id": 26
+        },
+        {
+          "id": 20,
+          "x": 51.2444692848635,
+          "y": 48.79287515626412,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 34.49111632723305,
+          "due_time": 69.49111632723304,
+          "service_time": 20,
+          "pair_id": 19,
+          "order_id": 9
+        },
+        {
+          "id": 89,
+          "x": 44.183551186085054,
+          "y": 70.56674467599908,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 136.08733522271604,
+          "due_time": 171.08733522271604,
+          "service_time": 10,
+          "pair_id": 90,
+          "order_id": 44
+        },
+        {
+          "id": 59,
+          "x": 44.313074505345696,
+          "y": 86.13491047618305,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 143.89667545143263,
+          "due_time": 178.89667545143263,
+          "service_time": 10,
+          "pair_id": 60,
+          "order_id": 29
+        },
+        {
+          "id": 8,
+          "x": 35.36188948000085,
+          "y": 79.7463588724773,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 75.81762080023617,
+          "due_time": 110.81762080023617,
+          "service_time": 20,
+          "pair_id": 7,
+          "order_id": 3
+        },
+        {
+          "id": 60,
+          "x": 49.3456057503305,
+          "y": 41.193743428671176,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 170.61722715303168,
+          "due_time": 205.61722715303168,
+          "service_time": 20,
+          "pair_id": 59,
+          "order_id": 29
+        },
+        {
+          "id": 90,
+          "x": 50.274237663559695,
+          "y": 31.754132734932575,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 159.90772769783356,
+          "due_time": 194.90772769783356,
+          "service_time": 20,
+          "pair_id": 89,
+          "order_id": 44
+        }
+      ],
+      "route_distance": 321.78292336799586,
+      "route_time_violation": 315.51143179506374,
+      "num_orders": 5
+    },
+    {
+      "id": 6,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 49,
+          "x": 63.11029572700989,
+          "y": 22.894178381115438,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 10.203458383966096,
+          "due_time": 45.203458383966094,
+          "service_time": 10,
+          "pair_id": 50,
+          "order_id": 24
+        },
+        {
+          "id": 50,
+          "x": 100,
+          "y": 58.85771840649009,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 35.815332830613066,
+          "due_time": 70.81533283061307,
+          "service_time": 20,
+          "pair_id": 49,
+          "order_id": 24
+        },
+        {
+          "id": 67,
+          "x": 57.91802908162562,
+          "y": 54.21952013742742,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 84.12157360209186,
+          "due_time": 119.12157360209186,
+          "service_time": 10,
+          "pair_id": 68,
+          "order_id": 33
+        },
+        {
+          "id": 73,
+          "x": 58.367228929122476,
+          "y": 52.278271553195886,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 103.13161931367573,
+          "due_time": 138.13161931367574,
+          "service_time": 10,
+          "pair_id": 74,
+          "order_id": 36
+        },
+        {
+          "id": 74,
+          "x": 100,
+          "y": 22.70419149554953,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 128.6066913573305,
+          "due_time": 163.6066913573305,
+          "service_time": 20,
+          "pair_id": 73,
+          "order_id": 36
+        },
+        {
+          "id": 93,
+          "x": 89.89246365264746,
+          "y": 21.007653833975404,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 112.33673882948774,
+          "due_time": 147.33673882948773,
+          "service_time": 10,
+          "pair_id": 94,
+          "order_id": 46
+        },
+        {
+          "id": 68,
+          "x": 82.71558511953202,
+          "y": 9.936047428175733,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 109.50150262571647,
+          "due_time": 144.50150262571645,
+          "service_time": 20,
+          "pair_id": 67,
+          "order_id": 33
+        },
+        {
+          "id": 97,
+          "x": 88.14162046633244,
+          "y": 2.4786361898188725,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 134.03748759095888,
+          "due_time": 169.03748759095888,
+          "service_time": 10,
+          "pair_id": 98,
+          "order_id": 48
+        },
+        {
+          "id": 98,
+          "x": 100,
+          "y": 0,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 160.08219036970166,
+          "due_time": 195.08219036970166,
+          "service_time": 20,
+          "pair_id": 97,
+          "order_id": 48
+        },
+        {
+          "id": 94,
+          "x": 64.84543757493991,
+          "y": 0,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 140.0194328585079,
+          "due_time": 175.0194328585079,
+          "service_time": 20,
+          "pair_id": 93,
+          "order_id": 46
+        }
+      ],
+      "route_distance": 390.659851648434,
+      "route_time_violation": 274.99641170949656,
+      "num_orders": 5
+    },
+    {
+      "id": 7,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 11,
+          "x": 7.880019807845818,
+          "y": 29.317828140709288,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 52.07544376804462,
+          "due_time": 87.07544376804462,
+          "service_time": 10,
+          "pair_id": 12,
+          "order_id": 5
+        },
+        {
+          "id": 3,
+          "x": 8.693883262941615,
+          "y": 42.192181968527045,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 72.77116148688418,
+          "due_time": 107.77116148688418,
+          "service_time": 10,
+          "pair_id": 4,
+          "order_id": 1
+        },
+        {
+          "id": 13,
+          "x": 4.5824383655662215,
+          "y": 22.789827565154685,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 33.52188763598835,
+          "due_time": 68.52188763598835,
+          "service_time": 10,
+          "pair_id": 14,
+          "order_id": 6
+        },
+        {
+          "id": 4,
+          "x": 0,
+          "y": 14.055979448887381,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 91.69502832271078,
+          "due_time": 126.69502832271078,
+          "service_time": 20,
+          "pair_id": 3,
+          "order_id": 1
+        },
+        {
+          "id": 14,
+          "x": 0,
+          "y": 0,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 50.56612006061278,
+          "due_time": 85.56612006061277,
+          "service_time": 20,
+          "pair_id": 13,
+          "order_id": 6
+        },
+        {
+          "id": 27,
+          "x": 9.090941217379388,
+          "y": 4.711637542473457,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 114.05942846826683,
+          "due_time": 149.05942846826684,
+          "service_time": 10,
+          "pair_id": 28,
+          "order_id": 13
+        },
+        {
+          "id": 28,
+          "x": 0,
+          "y": 17.45624171278246,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 132.5026278042605,
+          "due_time": 167.5026278042605,
+          "service_time": 20,
+          "pair_id": 27,
+          "order_id": 13
+        },
+        {
+          "id": 43,
+          "x": 16.512695897412765,
+          "y": 52.7673787418254,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 133.76354299231346,
+          "due_time": 168.76354299231346,
+          "service_time": 10,
+          "pair_id": 44,
+          "order_id": 21
+        },
+        {
+          "id": 12,
+          "x": 20.743999757290155,
+          "y": 67.86300293438998,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 74.38911464067694,
+          "due_time": 109.38911464067694,
+          "service_time": 20,
+          "pair_id": 11,
+          "order_id": 5
+        },
+        {
+          "id": 75,
+          "x": 13.087828212745645,
+          "y": 64.55007888376495,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 134.74573739205456,
+          "due_time": 169.74573739205456,
+          "service_time": 10,
+          "pair_id": 76,
+          "order_id": 37
+        },
+        {
+          "id": 76,
+          "x": 8.810285469790845,
+          "y": 100,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 155.56605922039162,
+          "due_time": 190.56605922039162,
+          "service_time": 20,
+          "pair_id": 75,
+          "order_id": 37
+        },
+        {
+          "id": 44,
+          "x": 27.172087645675656,
+          "y": 99.20366934257092,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 158.86884692502957,
+          "due_time": 193.86884692502957,
+          "service_time": 20,
+          "pair_id": 43,
+          "order_id": 21
+        }
+      ],
+      "route_distance": 376.0515936768346,
+      "route_time_violation": 686.3842258853437,
+      "num_orders": 6
+    },
+    {
+      "id": 8,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 57,
+          "x": 24.865633392028563,
+          "y": 19.02089084408115,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 40.11050083203943,
+          "due_time": 75.11050083203943,
+          "service_time": 10,
+          "pair_id": 58,
+          "order_id": 28
+        },
+        {
+          "id": 9,
+          "x": 35.89793804846284,
+          "y": 34.39557224789711,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 66.15718267274532,
+          "due_time": 101.15718267274532,
+          "service_time": 10,
+          "pair_id": 10,
+          "order_id": 4
+        },
+        {
+          "id": 58,
+          "x": 19.726988175341752,
+          "y": 11.20905482752157,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 55.106629789681435,
+          "due_time": 90.10662978968143,
+          "service_time": 20,
+          "pair_id": 57,
+          "order_id": 28
+        },
+        {
+          "id": 83,
+          "x": 11.54286704191022,
+          "y": 10.703597770941764,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 87.09549509235225,
+          "due_time": 122.09549509235225,
+          "service_time": 10,
+          "pair_id": 84,
+          "order_id": 41
+        },
+        {
+          "id": 10,
+          "x": 12.350024770664149,
+          "y": 0,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 88.78871146948228,
+          "due_time": 123.78871146948228,
+          "service_time": 20,
+          "pair_id": 9,
+          "order_id": 4
+        },
+        {
+          "id": 63,
+          "x": 16.463712140152687,
+          "y": 0.2155378351426429,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 113.0586273783535,
+          "due_time": 148.0586273783535,
+          "service_time": 10,
+          "pair_id": 64,
+          "order_id": 31
+        },
+        {
+          "id": 84,
+          "x": 16.865231130391813,
+          "y": 0,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 111.4477388351282,
+          "due_time": 146.4477388351282,
+          "service_time": 20,
+          "pair_id": 83,
+          "order_id": 41
+        },
+        {
+          "id": 47,
+          "x": 24.790561366600794,
+          "y": 6.402589632634492,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 84.73537647509055,
+          "due_time": 119.73537647509055,
+          "service_time": 10,
+          "pair_id": 48,
+          "order_id": 23
+        },
+        {
+          "id": 48,
+          "x": 0,
+          "y": 11.794741875082469,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 102.42331700754607,
+          "due_time": 137.42331700754607,
+          "service_time": 20,
+          "pair_id": 47,
+          "order_id": 23
+        },
+        {
+          "id": 64,
+          "x": 5.505887898934006,
+          "y": 42.86734519107597,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 136.40314948415556,
+          "due_time": 171.40314948415556,
+          "service_time": 20,
+          "pair_id": 63,
+          "order_id": 31
+        }
+      ],
+      "route_distance": 279.7404364401669,
+      "route_time_violation": 280.88668758642746,
+      "num_orders": 5
+    },
+    {
+      "id": 9,
+      "capacity": 6,
+      "speed": 3.3,
+      "detour_factor": 1.3,
+      "route": [
+        {
+          "id": 45,
+          "x": 20.11510633896959,
+          "y": 31.171629130089496,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 63.086412083688586,
+          "due_time": 98.08641208368859,
+          "service_time": 10,
+          "pair_id": 46,
+          "order_id": 22
+        },
+        {
+          "id": 46,
+          "x": 69.63004200505907,
+          "y": 46.159434894034845,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 88.76325414481867,
+          "due_time": 123.76325414481867,
+          "service_time": 20,
+          "pair_id": 45,
+          "order_id": 22
+        },
+        {
+          "id": 1,
+          "x": 63.942679845788376,
+          "y": 2.5010755222666936,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 106.05185483961779,
+          "due_time": 141.0518548396178,
+          "service_time": 10,
+          "pair_id": 2,
+          "order_id": 0
+        },
+        {
+          "id": 2,
+          "x": 41.4456116827003,
+          "y": 0,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 129.58584458807601,
+          "due_time": 164.58584458807601,
+          "service_time": 20,
+          "pair_id": 1,
+          "order_id": 0
+        },
+        {
+          "id": 21,
+          "x": 40.1164787022329,
+          "y": 6.618860521154724,
+          "type": "PICKUP",
+          "demand": 2,
+          "ready_time": 103.37965498353253,
+          "due_time": 138.37965498353253,
+          "service_time": 10,
+          "pair_id": 22,
+          "order_id": 10
+        },
+        {
+          "id": 87,
+          "x": 42.357577256372636,
+          "y": 27.668022397225165,
+          "type": "PICKUP",
+          "demand": 3,
+          "ready_time": 91.74432633139867,
+          "due_time": 126.74432633139867,
+          "service_time": 10,
+          "pair_id": 88,
+          "order_id": 43
+        },
+        {
+          "id": 99,
+          "x": 81.0749316574389,
+          "y": 26.680570959447202,
+          "type": "PICKUP",
+          "demand": 1,
+          "ready_time": 125.59201673847693,
+          "due_time": 160.59201673847693,
+          "service_time": 10,
+          "pair_id": 100,
+          "order_id": 49
+        },
+        {
+          "id": 22,
+          "x": 81.4300911207874,
+          "y": 13.33686566900495,
+          "type": "DELIVERY",
+          "demand": -2,
+          "ready_time": 126.06336891532305,
+          "due_time": 161.06336891532305,
+          "service_time": 20,
+          "pair_id": 21,
+          "order_id": 10
+        },
+        {
+          "id": 100,
+          "x": 100,
+          "y": 0,
+          "type": "DELIVERY",
+          "demand": -1,
+          "ready_time": 152.76388176523255,
+          "due_time": 187.76388176523255,
+          "service_time": 20,
+          "pair_id": 99,
+          "order_id": 49
+        },
+        {
+          "id": 88,
+          "x": 0,
+          "y": 54.77994469918787,
+          "type": "DELIVERY",
+          "demand": -3,
+          "ready_time": 116.98413176320715,
+          "due_time": 151.98413176320713,
+          "service_time": 20,
+          "pair_id": 87,
+          "order_id": 43
+        }
+      ],
+      "route_distance": 513.6684596484299,
+      "route_time_violation": 705.9527866462192,
+      "num_orders": 5
+    }
+  ],
+  "unassigned_orders": [],
+  "statistics": {
+    "total_cost": 423209.04066137376,
+    "total_distance": 3265.8466957096566,
+    "total_time_violation": 4194.431939656641,
+    "num_vehicles_used": 10,
+    "num_unassigned": 0,
+    "is_feasible": false
+  },
+  "additional_info": {
+    "solver_type": "alns-dc",
+    "num_orders": 50,
+    "num_vehicles": 10,
+    "random_seed": 42,
+    "max_iterations": 50,
+    "total_iterations": 5
+  }
+}

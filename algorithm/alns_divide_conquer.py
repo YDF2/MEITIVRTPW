@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-ALNS分治求解器 - 使用ALNS+Gurobi求解子问题
+ALNS分治求解器 - 使用ALNS求解子问题
 """
 
 import numpy as np
@@ -20,10 +20,7 @@ class ALNSDivideAndConquerSolver(BaseSolver):
     """
     ALNS分治求解器
     
-    与GurobiDivideAndConquer的区别：
-    - 使用 ALNS+Gurobi 求解子问题（更灵活）
-    - Gurobi用于生成高质量初始解
-    - ALNS用于进一步优化
+    使用 ALNS 求解子问题
     """
     
     def __init__(
@@ -31,10 +28,8 @@ class ALNSDivideAndConquerSolver(BaseSolver):
         num_clusters: int = None,
         sub_iterations: int = 300,
         global_iterations: int = 50,
-        random_seed: int = 42,
+        random_seed: int = 112,
         verbose: bool = True,
-        use_gurobi_init: bool = True,
-        gurobi_time_limit: int = 30,
         use_parallel: bool = True,
         max_workers: int = None,
         skip_global_optimization: bool = False
@@ -46,8 +41,6 @@ class ALNSDivideAndConquerSolver(BaseSolver):
             global_iterations: 全局优化迭代次数
             random_seed: 随机种子
             verbose: 是否输出详细信息
-            use_gurobi_init: 是否使用Gurobi生成子问题初始解
-            gurobi_time_limit: Gurobi时间限制（秒）
             use_parallel: 是否使用多进程并行
             max_workers: 最大工作进程数
             skip_global_optimization: 是否跳过全局优化
@@ -58,34 +51,26 @@ class ALNSDivideAndConquerSolver(BaseSolver):
         self.sub_iterations = sub_iterations
         self.global_iterations = global_iterations
         self.skip_global_optimization = skip_global_optimization
-        self.use_gurobi_init = use_gurobi_init
-        self.gurobi_time_limit = gurobi_time_limit
         self.use_parallel = use_parallel
         self.max_workers = max_workers or max(1, mp.cpu_count() - 1)
         
-        # 检查Gurobi可用性
-        if self.use_gurobi_init:
-            try:
-                from algorithm.gurobi_solver import GUROBI_AVAILABLE
-                if not GUROBI_AVAILABLE:
-                    print("警告: Gurobi不可用，将使用纯ALNS算法")
-                    self.use_gurobi_init = False
-            except ImportError:
-                print("警告: 无法导入Gurobi，将使用纯ALNS算法")
-                self.use_gurobi_init = False
+        # 用于保存全局ALNS实例以便可视化
+        self.global_alns_solver = None
+        self.destroy_ops = None
+        self.repair_ops = None
+        self.best_cost_history = []
+        self.current_cost_history = []
         
         if self.verbose:
             print(f"  ✓ ALNS分治求解器初始化")
-            if self.use_gurobi_init:
-                print(f"  ✓ Gurobi初始解已启用 (时间限制: {self.gurobi_time_limit}秒)")
             if self.use_parallel:
                 print(f"  ✓ 多进程并行已启用，最大工作进程: {self.max_workers}")
     
     def solve(self, initial_solution: Solution) -> Solution:
         """
-        使用DivideAndConquer框架，但子问题用ALNS+Gurobi求解
+        使用DivideAndConquer框架，但子问题用ALNS求解
         
-        实际上复用DivideAndConquerSolver，但通过参数配置强制使用ALNS
+        实际上复用DivideAndConquerSolver
         """
         if self.verbose:
             print("\n" + "=" * 60)
@@ -96,21 +81,31 @@ class ALNSDivideAndConquerSolver(BaseSolver):
         
         start_time = time.time()
         
-        # 使用DivideAndConquerSolver框架，但强制使用ALNS
+        # 使用DivideAndConquerSolver框架
         dc_solver = DivideAndConquerSolver(
             num_clusters=self.num_clusters,
             sub_iterations=self.sub_iterations,
             global_iterations=self.global_iterations,
             random_seed=self.random_seed,
             verbose=self.verbose,
-            use_gurobi=False,  # 关键：不使用Gurobi直接求解
             use_parallel=self.use_parallel,
             max_workers=self.max_workers,
             skip_global_optimization=self.skip_global_optimization
         )
         
-        # 注意：这里的ALNS会自动使用Gurobi初始解（如果我们已经修改了ALNS类）
         solution = dc_solver.solve(initial_solution)
+        
+        # 获取全局ALNS的统计信息用于可视化
+        if hasattr(dc_solver, 'global_alns_solver') and dc_solver.global_alns_solver is not None:
+            self.global_alns_solver = dc_solver.global_alns_solver
+            self.destroy_ops = dc_solver.global_alns_solver.destroy_ops
+            self.repair_ops = dc_solver.global_alns_solver.repair_ops
+            self.best_cost_history = dc_solver.global_alns_solver.best_cost_history
+            self.current_cost_history = dc_solver.global_alns_solver.current_cost_history
+            if self.verbose:
+                print(f"  ✓ 已保存全局ALNS统计信息: {len(self.best_cost_history)} 次迭代")
+        elif self.verbose:
+            print(f"  ⚠ 警告: 未找到全局ALNS统计信息")
         
         elapsed = time.time() - start_time
         
@@ -125,9 +120,19 @@ class ALNSDivideAndConquerSolver(BaseSolver):
     
     def get_statistics(self):
         """获取统计信息"""
-        return {
+        stats = {
             'solver_type': 'ALNS-DivideAndConquer',
-            'use_gurobi_init': self.use_gurobi_init,
             'sub_iterations': self.sub_iterations,
-            'global_iterations': self.global_iterations
+            'global_iterations': self.global_iterations,
+            'use_parallel': self.use_parallel,
+            'max_workers': self.max_workers
         }
+        
+        # 如果有全局ALNS统计信息，也包含进来
+        if self.global_alns_solver is not None:
+            stats['has_global_alns'] = True
+            stats['total_iterations'] = len(self.best_cost_history)
+        else:
+            stats['has_global_alns'] = False
+        
+        return stats

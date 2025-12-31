@@ -50,8 +50,6 @@ def create_solver(
     Args:
         solver_type: 求解器类型
             - 'alns': 标准ALNS（纯启发式）
-            - 'alns-gurobi': ALNS + Gurobi初始解
-            - 'gurobi-dc': Gurobi分治（MIP求解子问题）
             - 'alns-dc': ALNS分治（ALNS求解子问题）
         max_iterations: 最大迭代次数
         random_seed: 随机种子
@@ -65,51 +63,24 @@ def create_solver(
         return ALNS(
             max_iterations=max_iterations,
             random_seed=random_seed,
-            verbose=True,
-            use_gurobi=False
-        )
-    
-    elif solver_type == 'alns-gurobi':
-        # ALNS + Gurobi增强（Gurobi生成初始解）
-        return ALNS(
-            max_iterations=max_iterations,
-            random_seed=random_seed,
-            verbose=True,
-            use_gurobi=True,
-            gurobi_time_limit=30  # Gurobi初始解时间限制
-        )
-    
-    elif solver_type == 'gurobi-dc':
-        # Gurobi分治（使用Gurobi MIP求解子问题）
-        return DivideAndConquerSolver(
-            num_clusters=None,  # 自动确定
-            skip_global_optimization=True,
-            sub_iterations=min(300, max_iterations),
-            global_iterations=min(50, max_iterations // 10),
-            random_seed=random_seed,
-            verbose=True,
-            use_gurobi=True,  # 使用Gurobi
-            use_parallel=True,
-            max_workers=None
+            verbose=True
         )
     
     elif solver_type == 'alns-dc':
-        # ALNS分治（使用ALNS求解子问题，可选Gurobi初始解）
+        # ALNS分治（使用ALNS求解子问题）
         return ALNSDivideAndConquerSolver(
             num_clusters=None,  # 自动确定
-            skip_global_optimization=True,
+            skip_global_optimization=False,  # 启用全局优化以生成算子统计
             sub_iterations=min(300, max_iterations),
             global_iterations=min(50, max_iterations // 10),
             random_seed=random_seed,
             verbose=True,
-            use_gurobi_init=True,  # 使用Gurobi生成子问题初始解
-            gurobi_time_limit=20,
             use_parallel=True,
             max_workers=None
         )
     
     else:
-        raise ValueError(f"未知的求解器类型: {solver_type}。支持的类型: alns, alns-gurobi, gurobi-dc, alns-dc")
+        raise ValueError(f"未知的求解器类型: {solver_type}。支持的类型: alns, alns-dc")
 
 
 def run_experiment(
@@ -135,7 +106,7 @@ def run_experiment(
         visualize: 是否可视化
         experiment_name: 实验名称
         use_divide_conquer: 是否使用分治策略（None时自动判断）
-        solver: 求解器类型 ('alns', 'alns-gurobi', 'gurobi-dc', 'alns-dc', None=自动)
+        solver: 求解器类型 ('alns', 'alns-dc', None=自动)
     """
     # 自动判断是否使用分治策略（如果没有指定solver）
     if solver is None:
@@ -144,15 +115,13 @@ def run_experiment(
         
         # 根据use_divide_conquer自动选择solver
         if use_divide_conquer:
-            solver = 'gurobi-dc'
+            solver = 'alns-dc'
         else:
             solver = 'alns'
     
     # 根据solver类型确定显示名称
     solver_display_names = {
         'alns': 'ALNS（纯启发式）',
-        'alns-gurobi': 'ALNS+Gurobi（增强初始解）',
-        'gurobi-dc': 'Gurobi分治（MIP并行）',
         'alns-dc': 'ALNS分治（ALNS并行）'
     }
     solver_name = solver_display_names.get(solver, solver)
@@ -341,24 +310,46 @@ def run_experiment(
             save_path=os.path.join(output_dir, "route_visualization.png") if save_results else None
         )
         
-        # 仅标准ALNS才绘制收敛曲线和算子权重
-        if solver == 'alns' or solver == 'alns-gurobi':
-            # 检查求解器实例是否有这些属性
+        # 绘制ALNS相关的收敛曲线和算子权重
+        # 对于alns和alns-dc（有全局ALNS）都绘制
+        has_alns_info = False
+        
+        if solver == 'alns':
+            # 标准ALNS：直接使用solver_instance的信息
             if hasattr(solver_instance, 'best_cost_history') and hasattr(solver_instance, 'current_cost_history'):
-                # 绘制收敛曲线
+                has_alns_info = True
+                best_history = solver_instance.best_cost_history
+                current_history = solver_instance.current_cost_history
+                destroy_ops = solver_instance.destroy_ops if hasattr(solver_instance, 'destroy_ops') else None
+                repair_ops = solver_instance.repair_ops if hasattr(solver_instance, 'repair_ops') else None
+        elif solver == 'alns-dc':
+            # ALNS分治：使用全局ALNS的信息
+            if hasattr(solver_instance, 'best_cost_history') and len(solver_instance.best_cost_history) > 0:
+                has_alns_info = True
+                best_history = solver_instance.best_cost_history
+                current_history = solver_instance.current_cost_history
+                destroy_ops = solver_instance.destroy_ops if hasattr(solver_instance, 'destroy_ops') else None
+                repair_ops = solver_instance.repair_ops if hasattr(solver_instance, 'repair_ops') else None
+                print(f"  ✓ 检测到ALNS-DC统计信息: {len(best_history)} 次迭代")
+            else:
+                print(f"  ⚠ 未检测到ALNS-DC统计信息 (best_cost_history: {hasattr(solver_instance, 'best_cost_history')}, length: {len(solver_instance.best_cost_history) if hasattr(solver_instance, 'best_cost_history') else 0})")
+        
+        if has_alns_info:
+            # 绘制收敛曲线
+            if len(best_history) > 0:
                 fig2 = visualizer.plot_convergence(
-                    solver_instance.best_cost_history,
-                    solver_instance.current_cost_history,
-                    title="ALNS 算法收敛曲线",
+                    best_history,
+                    current_history,
+                    title=f"{'ALNS' if solver == 'alns' else 'ALNS分治（全局优化）'} 算法收敛曲线",
                     save_path=os.path.join(output_dir, "convergence.png") if save_results else None
                 )
             
             # 绘制算子权重
-            if hasattr(solver_instance, 'destroy_ops') and hasattr(solver_instance, 'repair_ops'):
+            if destroy_ops is not None and repair_ops is not None:
                 fig3 = visualizer.plot_operator_weights(
-                    solver_instance.destroy_ops.weights,
-                    solver_instance.repair_ops.weights,
-                    title="算子权重分布",
+                    destroy_ops.weights,
+                    repair_ops.weights,
+                    title=f"{'ALNS' if solver == 'alns' else 'ALNS分治（全局优化）'} 算子权重分布",
                     save_path=os.path.join(output_dir, "operator_weights.png") if save_results else None
                 )
         
@@ -469,22 +460,19 @@ def main():
     主函数 - 解析命令行参数并运行
     """
     parser = argparse.ArgumentParser(
-        description='外卖配送路径规划系统 (PDPTW + ALNS/Gurobi)',
+        description='外卖配送路径规划系统 (PDPTW + ALNS)',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
   python main.py --demo                              # 运行演示
   python main.py --orders 20 --vehicles 5            # 自定义规模
-  python main.py --orders 100 --vehicles 20          # 大规模（自动用gurobi-dc）
-  python main.py --orders 80 --solver alns-gurobi    # ALNS+Gurobi
-  python main.py --orders 200 --solver gurobi-dc     # Gurobi分治
+  python main.py --orders 100 --vehicles 20          # 大规模（自动用alns-dc）
+  python main.py --orders 200 --solver alns-dc       # ALNS分治
   python main.py --benchmark                         # 运行基准测试
 
 求解器选项:
   alns         : 标准ALNS（纯启发式，<100订单）
-  alns-gurobi  : ALNS+Gurobi（增强版，50-100订单）
-  gurobi-dc    : Gurobi分治（MIP并行，>100订单）[默认]
-  alns-dc      : ALNS分治（ALNS并行，>100订单）
+  alns-dc      : ALNS分治（ALNS并行，>100订单）[默认]
         """
     )
     
@@ -501,10 +489,10 @@ def main():
     parser.add_argument('--seed', type=int, default=42,
                        help='随机种子 (默认: 42)')
     parser.add_argument('--solver', type=str, 
-                       choices=['alns', 'alns-gurobi', 'gurobi-dc', 'alns-dc'],
+                       choices=['alns', 'alns-dc'],
                        help='求解器类型（默认自动选择）')
     parser.add_argument('--divide-conquer', action='store_true',
-                       help='[已弃用] 使用--solver gurobi-dc代替')
+                       help='[已弃用] 使用--solver alns-dc代替')
     parser.add_argument('--no-divide-conquer', action='store_true',
                        help='[已弃用] 使用--solver alns代替')
     parser.add_argument('--no-save', action='store_true',
@@ -517,8 +505,8 @@ def main():
     # 处理旧参数兼容性
     solver = args.solver
     if args.divide_conquer and solver is None:
-        print("警告: --divide-conquer已弃用，请使用--solver gurobi-dc")
-        solver = 'gurobi-dc'
+        print("警告: --divide-conquer已弃用，请使用--solver alns-dc")
+        solver = 'alns-dc'
     if args.no_divide_conquer and solver is None:
         print("警告: --no-divide-conquer已弃用，请使用--solver alns")
         solver = 'alns'

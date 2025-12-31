@@ -32,9 +32,9 @@ TIME_WINDOW_WIDTH =35   # 时间窗宽度 (分钟)
 # ================== 目标函数权重 ==================
 WEIGHT_DISTANCE = 1.0    # w1: 距离成本权重
 # 迟到1分钟的惩罚相当于多跑 500米 (5 units)
-WEIGHT_TIME_PENALTY = 5.0    # w2: 超时惩罚权重 (软时间窗)
+WEIGHT_TIME_PENALTY = 10.0    # w2: 超时惩罚权重 (软时间窗)
 WEIGHT_UNASSIGNED = 10000.0  # w3: 未分配订单惩罚权重 (绝对不允许甩单)
-WEIGHT_VEHICLE_USAGE = 200.0 # w4: 骑手使用成本权重 (尽量少用骑手)
+WEIGHT_VEHICLE_USAGE = 100.0 # w4: 骑手使用成本权重 (尽量少用骑手)
 
 # ================== ALNS 算法参数 ==================
 MAX_ITERATIONS = 1000    # 最大迭代次数

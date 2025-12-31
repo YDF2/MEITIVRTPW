@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-分治策略 (Divide and Conquer) 求解器 - 支持多进程并行和Gurobi优化
+分治策略 (Divide and Conquer) 求解器 - 支持多进程并行
 用于大规模问题的高效求解
 
 核心思路：
@@ -25,12 +25,6 @@ from algorithm.base_solver import BaseSolver
 from algorithm.alns import ALNS, solve_pdptw
 from algorithm.objective import ObjectiveFunction
 import config
-
-# 尝试导入Gurobi求解器
-try:
-    from algorithm.gurobi_solver import solve_with_gurobi, GUROBI_AVAILABLE
-except ImportError:
-    GUROBI_AVAILABLE = False
 
 
 def _solve_sub_problem_worker(args):
@@ -97,30 +91,17 @@ def _solve_sub_problem_worker(args):
         # 创建子问题Solution
         sub_solution = Solution(vehicles=vehicles, orders=orders, depot=depot)
         
-        # 根据配置选择求解器
-        use_gurobi = solver_params.get('use_gurobi', False)
+        # 使用ALNS求解
         sub_iterations = solver_params.get('sub_iterations', 300)
         random_seed = solver_params.get('random_seed', 42)
         
-        if use_gurobi and GUROBI_AVAILABLE:
-            # 使用Gurobi求解
-            solved = solve_with_gurobi(sub_solution, time_limit=60, verbose=False)
-            
-            # 调试：检查Gurobi返回的解
-            print(f"    [DEBUG Worker Gurobi] 簇{cluster_id} Gurobi求解完成")
-            for v_idx, vehicle in enumerate(solved.vehicles):
-                if len(vehicle.route) > 0:
-                    print(f"      车辆{vehicle.id}: {len(vehicle.route)}个节点")
-                    if len(vehicle.route) > 0:
-                        print(f"        第1个节点: order_id={vehicle.route[0].order_id}")
-        else:
-            # 使用ALNS求解
-            solved = solve_pdptw(
-                sub_solution,
-                max_iterations=sub_iterations,
-                random_seed=random_seed + cluster_id,
-                verbose=False
-            )
+        # 使用ALNS求解
+        solved = solve_pdptw(
+            sub_solution,
+            max_iterations=sub_iterations,
+            random_seed=random_seed + cluster_id,
+            verbose=False
+        )
         
         # 序列化结果 - 保存订单ID和节点类型信息
         # 计算已分配订单数（通过检查路径中的订单）
@@ -184,7 +165,7 @@ def _solve_sub_problem_worker(args):
 
 class DivideAndConquerSolver(BaseSolver):
     """
-    分治求解器 (使用Gurobi) - 支持多进程并行
+    分治求解器 - 支持多进程并行
     适用于大规模问题（>100订单）
     """
     
@@ -195,7 +176,6 @@ class DivideAndConquerSolver(BaseSolver):
         global_iterations: int = 50,
         random_seed: int = 42,
         verbose: bool = True,
-        use_gurobi: bool = None,
         use_parallel: bool = True,
         max_workers: int = None,
         skip_global_optimization: bool = False
@@ -207,10 +187,9 @@ class DivideAndConquerSolver(BaseSolver):
             global_iterations: 全局优化迭代次数
             random_seed: 随机种子
             verbose: 是否输出详细信息
-            use_gurobi: 是否使用Gurobi（None时自动判断）
             use_parallel: 是否使用多进程并行
             max_workers: 最大工作进程数（None时使用CPU核心数）
-            skip_global_optimization: 是否跳过全局优化（Gurobi解质量高时可跳过）
+            skip_global_optimization: 是否跳过全局优化
         """
         super().__init__(random_seed=random_seed, verbose=verbose)
         
@@ -221,15 +200,10 @@ class DivideAndConquerSolver(BaseSolver):
         self.use_parallel = use_parallel
         self.max_workers = max_workers or max(1, mp.cpu_count() - 1)  # 留一个核心
         
-        # 自动判断是否使用Gurobi
-        if use_gurobi is None:
-            self.use_gurobi = GUROBI_AVAILABLE
-        else:
-            self.use_gurobi = use_gurobi and GUROBI_AVAILABLE
+        # 用于保存全局ALNS实例以便可视化
+        self.global_alns_solver = None
         
         if self.verbose:
-            if self.use_gurobi:
-                print("  ✓ Gurobi 可用，将用于子问题求解")
             if self.use_parallel:
                 print(f"  ✓ 多进程并行已启用，最大工作进程: {self.max_workers}")
         
@@ -268,7 +242,10 @@ class DivideAndConquerSolver(BaseSolver):
                 random_seed=self.random_seed,
                 verbose=self.verbose
             )
-            return alns.solve(initial_solution)
+            solution = alns.solve(initial_solution)
+            # 保存ALNS实例以便后续可视化
+            self.global_alns_solver = alns
+            return solution
         
         if self.verbose:
             print(f"聚类数量: {self.num_clusters}")
@@ -541,7 +518,6 @@ class DivideAndConquerSolver(BaseSolver):
         
         # 求解器参数
         solver_params = {
-            'use_gurobi': self.use_gurobi,
             'sub_iterations': self.sub_iterations,
             'random_seed': self.random_seed
         }
@@ -555,7 +531,12 @@ class DivideAndConquerSolver(BaseSolver):
         cluster_vehicles: Dict[int, List[Vehicle]]
     ) -> Dict[int, Dict]:
         """
-        并行求解所有簇
+        并行求解所有簇（使用多进程）
+        
+        优化要点：
+        1. 使用ProcessPoolExecutor进行多进程并行
+        2. 自动调整工作进程数以匹配簇数量
+        3. 实时显示进度
         """
         # 准备所有子问题的参数
         tasks = []
@@ -571,9 +552,18 @@ class DivideAndConquerSolver(BaseSolver):
             )
             tasks.append(task_args)
         
+        # 根据实际任务数调整工作进程数
+        actual_workers = min(self.max_workers, len(tasks))
+        
+        if self.verbose:
+            print(f"  使用 {actual_workers} 个进程并行处理 {len(tasks)} 个簇")
+        
         # 并行执行
         results = {}
-        with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
+        completed = 0
+        total_tasks = len(tasks)
+        
+        with ProcessPoolExecutor(max_workers=actual_workers) as executor:
             # 提交所有任务
             future_to_cluster = {
                 executor.submit(_solve_sub_problem_worker, task): task[0] 
@@ -586,9 +576,10 @@ class DivideAndConquerSolver(BaseSolver):
                 try:
                     result = future.result()
                     results[result['cluster_id']] = result
+                    completed += 1
                     
                     if self.verbose and 'error' not in result:
-                        print(f"    ✓ 簇 {result['cluster_id']} 完成, 成本: {result['cost']:.2f}")
+                        print(f"    ✓ 簇 {result['cluster_id']} 完成 ({completed}/{total_tasks}), 成本: {result['cost']:.2f}")
                     elif 'error' in result:
                         print(f"    ✗ 簇 {result['cluster_id']} 失败: {result['error']}")
                         
@@ -625,17 +616,14 @@ class DivideAndConquerSolver(BaseSolver):
                 depot=original_solution.depot
             )
             
-            # 使用 Gurobi 或 ALNS 求解
+            # 使用 ALNS 求解
             time_start = time.time()
-            if self.use_gurobi and GUROBI_AVAILABLE:
-                solved_solution = solve_with_gurobi(sub_solution, time_limit=60, verbose=False)
-            else:
-                alns = ALNS(
-                    max_iterations=self.sub_iterations,
-                    random_seed=self.random_seed + cluster_id,
-                    verbose=False
-                )
-                solved_solution = alns.solve(sub_solution)
+            alns = ALNS(
+                max_iterations=self.sub_iterations,
+                random_seed=self.random_seed + cluster_id,
+                verbose=False
+            )
+            solved_solution = alns.solve(sub_solution)
             time_solve = time.time() - time_start
             
             cost = solved_solution.calculate_cost()
@@ -797,7 +785,7 @@ class DivideAndConquerSolver(BaseSolver):
         Returns:
             优化后的解
         """
-        # 使用更少的迭代次数，因为Gurobi子解质量已经很高
+        # 使用更少的迭代次数，因为子解质量已经很高
         effective_iterations = min(self.global_iterations, 50)
         
         alns = ALNS(
@@ -807,6 +795,9 @@ class DivideAndConquerSolver(BaseSolver):
         )
         
         optimized_solution = alns.solve(solution)
+        
+        # 保存ALNS实例以便后续可视化
+        self.global_alns_solver = alns
         
         return optimized_solution
 
@@ -818,7 +809,6 @@ def solve_large_scale(
     global_iterations: int = 100,
     random_seed: int = 42,
     verbose: bool = True,
-    use_gurobi: bool = None,
     use_parallel: bool = True,
     max_workers: int = None
 ) -> Solution:
@@ -832,7 +822,6 @@ def solve_large_scale(
         global_iterations: 全局优化迭代次数
         random_seed: 随机种子
         verbose: 是否输出详细信息
-        use_gurobi: 是否使用Gurobi
         use_parallel: 是否使用多进程并行
         max_workers: 最大工作进程数
         
@@ -845,7 +834,6 @@ def solve_large_scale(
         global_iterations=global_iterations,
         random_seed=random_seed,
         verbose=verbose,
-        use_gurobi=use_gurobi,
         use_parallel=use_parallel,
         max_workers=max_workers
     )
