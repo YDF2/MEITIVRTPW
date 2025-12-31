@@ -61,6 +61,20 @@ class DataGenerator:
             service_time=0
         )
     
+    def generate_pickup_locations(self, num_locations: int) -> List[Tuple[float, float, float, float]]:
+        """
+        生成取货点位置及时间窗
+        返回: [(x, y, ready_time, due_time), ...]
+        """
+        locations = []
+        for _ in range(num_locations):
+            x = random.uniform(0, self.grid_size)
+            y = random.uniform(0, self.grid_size)
+            ready_time = random.uniform(0, self.time_horizon * 0.6)
+            due_time = ready_time + self.time_window_width
+            locations.append((x, y, ready_time, due_time))
+        return locations
+    
     def generate_order(self, order_id: int) -> Order:
         """
         生成一个订单 (包含取货点和送货点)
@@ -68,20 +82,33 @@ class DataGenerator:
         关键约束:
         1. 取货点时间窗必须早于送货点时间窗
         2. 需要考虑行驶时间
+        3. 顾客距离商家不超过5km (实际业务约束)
         """
         # 生成取货点 (商家) 坐标
         pickup_x = random.uniform(0, self.grid_size)
         pickup_y = random.uniform(0, self.grid_size)
         
         # 生成送货点 (顾客) 坐标
-        # 通常顾客距离商家不会太远
-        max_delivery_dist = self.grid_size * 0.5
-        delivery_x = pickup_x + random.uniform(-max_delivery_dist, max_delivery_dist)
-        delivery_y = pickup_y + random.uniform(-max_delivery_dist, max_delivery_dist)
+        # 顾客只能选择5km以内的商家
+        max_delivery_dist = 5.0  # 5km限制
         
-        # 确保在边界内
-        delivery_x = max(0, min(self.grid_size, delivery_x))
-        delivery_y = max(0, min(self.grid_size, delivery_y))
+        # 生成送货点，确保不超过5km
+        attempts = 0
+        while attempts < 100:  # 最多尝试100次
+            angle = random.uniform(0, 2 * np.pi)
+            distance = random.uniform(0.5, max_delivery_dist)  # 至少0.5km，最多5km
+            
+            delivery_x = pickup_x + distance * np.cos(angle)
+            delivery_y = pickup_y + distance * np.sin(angle)
+            
+            # 确保在边界内
+            if 0 <= delivery_x <= self.grid_size and 0 <= delivery_y <= self.grid_size:
+                break
+            attempts += 1
+        else:
+            # 如果100次都没成功，使用保守策略
+            delivery_x = np.clip(pickup_x + random.uniform(-2, 2), 0, self.grid_size)
+            delivery_y = np.clip(pickup_y + random.uniform(-2, 2), 0, self.grid_size)
         
         # 计算两点之间的行驶时间
         travel_dist = ((pickup_x - delivery_x) ** 2 + (pickup_y - delivery_y) ** 2) ** 0.5
@@ -138,8 +165,92 @@ class DataGenerator:
         return order
     
     def generate_orders(self, num_orders: int) -> List[Order]:
-        """生成多个订单"""
+        """生成多个订单（每个订单有独立的取货点）"""
         return [self.generate_order(i) for i in range(num_orders)]
+    
+    def generate_orders_with_shared_pickups(self, num_orders: int) -> List[Order]:
+        """
+        生成多个订单（共享取货点）
+        取货点数量不超过订单数量的1/3，每个取货点可能有多个订单
+        """
+        # 取货点数量：不超过订单数的1/3
+        num_pickups = max(1, num_orders // 3)
+        pickup_locations = self.generate_pickup_locations(num_pickups)
+        
+        orders = []
+        for i in range(num_orders):
+            # 随机选择一个取货点
+            pickup_x, pickup_y, pickup_ready, pickup_due = random.choice(pickup_locations)
+            
+            # 生成送货点 (顾客) 坐标 - 限制在5km以内
+            max_delivery_dist = 5.0  # 5km限制
+            
+            # 使用极坐标生成，确保距离控制
+            attempts = 0
+            while attempts < 100:
+                angle = random.uniform(0, 2 * np.pi)
+                distance = random.uniform(0.5, max_delivery_dist)  # 0.5-5km
+                
+                delivery_x = pickup_x + distance * np.cos(angle)
+                delivery_y = pickup_y + distance * np.sin(angle)
+                
+                # 确保在边界内
+                if 0 <= delivery_x <= self.grid_size and 0 <= delivery_y <= self.grid_size:
+                    break
+                attempts += 1
+            else:
+                # 保守策略
+                delivery_x = np.clip(pickup_x + random.uniform(-2, 2), 0, self.grid_size)
+                delivery_y = np.clip(pickup_y + random.uniform(-2, 2), 0, self.grid_size)
+            
+            # 计算两点之间的行驶时间
+            travel_dist = ((pickup_x - delivery_x) ** 2 + (pickup_y - delivery_y) ** 2) ** 0.5
+            travel_time = travel_dist / self.vehicle_speed
+            
+            # 生成送货点时间窗（必须在取货完成 + 行驶时间之后）
+            min_delivery_ready = pickup_ready + self.service_time_pickup + travel_time
+            delivery_ready = max(min_delivery_ready, pickup_ready + random.uniform(10, 30))
+            delivery_due = delivery_ready + self.time_window_width
+            
+            # 确保不超过时间跨度
+            delivery_due = min(delivery_due, self.time_horizon)
+            
+            # 生成货物数量 (1-3单位)
+            demand = random.randint(1, 3)
+            
+            # 创建取货点节点
+            pickup_node_id = i * 2 + 1
+            pickup_node = Node(
+                node_id=pickup_node_id,
+                x=pickup_x,
+                y=pickup_y,
+                node_type=NodeType.PICKUP,
+                demand=demand,
+                ready_time=pickup_ready,
+                due_time=pickup_due,
+                service_time=self.service_time_pickup,
+                order_id=i
+            )
+            
+            # 创建送货点节点
+            delivery_node_id = i * 2 + 2
+            delivery_node = Node(
+                node_id=delivery_node_id,
+                x=delivery_x,
+                y=delivery_y,
+                node_type=NodeType.DELIVERY,
+                demand=-demand,
+                ready_time=delivery_ready,
+                due_time=delivery_due,
+                service_time=self.service_time_delivery,
+                order_id=i
+            )
+            
+            # 创建订单
+            order = Order(i, pickup_node, delivery_node, demand)
+            orders.append(order)
+        
+        return orders
     
     def generate_vehicle(self, vehicle_id: int, depot: Node) -> Vehicle:
         """生成一个骑手"""
@@ -158,10 +269,14 @@ class DataGenerator:
     def generate_instance(
         self, 
         num_orders: int = None, 
-        num_vehicles: int = None
+        num_vehicles: int = None,
+        shared_pickups: bool = True
     ) -> Tuple[Node, List[Order], List[Vehicle]]:
         """
         生成完整的问题实例
+        
+        Args:
+            shared_pickups: 是否使用共享取货点（默认True，取货点数不超过订单数1/3）
         
         Returns:
             (depot, orders, vehicles)
@@ -170,7 +285,10 @@ class DataGenerator:
         num_vehicles = num_vehicles or config.NUM_VEHICLES
         
         depot = self.generate_depot()
-        orders = self.generate_orders(num_orders)
+        if shared_pickups:
+            orders = self.generate_orders_with_shared_pickups(num_orders)
+        else:
+            orders = self.generate_orders(num_orders)
         vehicles = self.generate_vehicles(num_vehicles, depot)
         
         return depot, orders, vehicles
@@ -178,15 +296,19 @@ class DataGenerator:
     def generate_solution(
         self, 
         num_orders: int = None, 
-        num_vehicles: int = None
+        num_vehicles: int = None,
+        shared_pickups: bool = True
     ) -> Solution:
         """
         生成包含问题实例的空解
         
+        Args:
+            shared_pickups: 是否使用共享取货点
+        
         Returns:
             初始化的Solution对象 (所有订单未分配)
         """
-        depot, orders, vehicles = self.generate_instance(num_orders, num_vehicles)
+        depot, orders, vehicles = self.generate_instance(num_orders, num_vehicles, shared_pickups)
         return Solution(vehicles, orders, depot)
     
     def generate_clustered_instance(

@@ -1,9 +1,18 @@
 # FoodDelivery_Optimizer
 
-## 外卖配送路径规划系统 (PDPTW + ALNS + 分治策略)
+## 外卖配送路径规划系统 (PDPTW + ALNS + 分治策略 + 强化学习)
 
 基于**自适应大邻域搜索 (ALNS)** 算法求解**带时间窗的取送货路径问题 (PDPTW)**。
 对于大规模问题（>=100订单），自动启用**分治策略 (Divide and Conquer)** 以提升求解效率。
+**新增强化学习求解器（Q-Learning）**，适用于小规模问题的快速求解和算法研究。
+
+## 🎯 支持的求解器
+
+| 求解器 | 说明 | 适用规模 | 特点 |
+|--------|------|---------|------|
+| **alns** | 标准ALNS算法 | <100订单 | 纯启发式，效率高 |
+| **alns-dc** | ALNS分治并行 | >100订单 | 自动聚类+并行求解 |
+| **rl** | 强化学习(Q-Learning) | <20订单 | 在线学习，适合研究 |
 
 ## 项目结构
 
@@ -25,7 +34,8 @@ FoodDelivery_Optimizer/
 │   ├── operators.py      # 破坏与修复算子 (Destroy & Repair)
 │   ├── objective.py      # 目标函数与约束检查
 │   ├── greedy.py         # 初始解生成器
-│   └── divide_and_conquer.py  # 分治策略求解器（大规模问题）
+│   ├── divide_and_conquer.py  # 分治策略求解器（大规模问题）
+│   └── reinforcement_learning.py  # 强化学习求解器（Q-Learning）
 │
 ├── utils/                # 工具层
 │   ├── __init__.py
@@ -56,7 +66,14 @@ python main.py --demo
 ### 2. 自定义规模运行
 
 ```bash
+# 使用ALNS算法
 python main.py --orders 20 --vehicles 5 --iterations 500
+
+# 使用强化学习算法（推荐小规模）
+python main.py --orders 15 --vehicles 4 --solver rl --iterations 100
+
+# 使用ALNS分治（推荐大规模）
+python main.py --orders 200 --vehicles 40 --solver alns-dc
 ```
 
 ### 3. 运行基准测试
@@ -74,6 +91,7 @@ python main.py --benchmark
 | `--orders` | 订单数量 | 20 |
 | `--vehicles` | 骑手数量 | 5 |
 | `--iterations` | ALNS最大迭代次数 | 500 |
+| `--solver` | 求解器类型 (alns/alns-dc/rl) | 自动选择 |
 | `--seed` | 随机种子 | 42 |
 | `--no-save` | 不保存结果 | False |
 | `--no-viz` | 不显示可视化 | False |
@@ -155,6 +173,51 @@ COOLING_RATE = 0.995
   未分配订单:   0
   解可行性:     是
 ```
+
+---
+
+## 🤖 强化学习求解器
+
+### Q-Learning算法
+
+本项目实现了基于Q-learning的强化学习求解器，适用于小规模PDPTW问题。
+
+**核心特性：**
+- **状态空间**：订单分配状态 + 骑手路径状态
+- **动作空间**：(订单ID, 骑手ID, 插入位置)
+- **奖励函数**：-(成本) - 100×(时间窗违反) - 10×(路径过长惩罚)
+- **学习策略**：ε-greedy（探索与利用平衡）
+- **Q值更新**：Q(s,a) ← Q(s,a) + α[r + γ·max Q(s',a') - Q(s,a)]
+
+### 使用强化学习
+
+```bash
+# 运行RL算法
+python main.py --orders 15 --vehicles 4 --solver rl --iterations 100
+
+# 运行测试套件
+python test_reinforcement_learning.py
+
+# 查看演示
+python demo_rl.py
+```
+
+### 性能对比
+
+| 问题规模 | RL | ALNS | ALNS-DC | 推荐 |
+|---------|-----|------|---------|------|
+| <20订单 | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | RL/ALNS |
+| 20-50订单 | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ALNS |
+| >50订单 | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ALNS-DC |
+
+### 相关文档
+
+- **技术文档**：[REINFORCEMENT_LEARNING_DOC.md](REINFORCEMENT_LEARNING_DOC.md)
+- **实现总结**：[RL_IMPLEMENTATION_SUMMARY.md](RL_IMPLEMENTATION_SUMMARY.md)
+- **算法代码**：[algorithm/reinforcement_learning.py](algorithm/reinforcement_learning.py)
+- **测试脚本**：[test_reinforcement_learning.py](test_reinforcement_learning.py)
+
+---
 
 ## 作者
 

@@ -77,6 +77,37 @@ class ALNS(BaseSolver):
         self.sigma_2 = config.SIGMA_2  # 比当前解更好
         self.sigma_3 = config.SIGMA_3  # 接受了差解
     
+    def _calculate_initial_temperature(self, initial_cost: float, tau: float = 0.05) -> float:
+        """
+        自适应计算初始温度
+        
+        参考ALNS标准方法：
+        T0 = -delta / ln(0.5)
+        其中 delta = tau * initial_cost
+        
+        tau参数控制初始接受概率：
+        - tau越大，初始温度越高，接受差解的概率越大
+        - 通常取值范围：0.01 - 0.1
+        
+        Args:
+            initial_cost: 初始解的成本
+            tau: 温度控制参数
+            
+        Returns:
+            初始温度
+        """
+        if initial_cost <= 0:
+            return self.initial_temperature
+        
+        delta = tau * initial_cost
+        # ln(0.5) ≈ -0.693
+        temperature = -delta / np.log(0.5)
+        
+        if self.verbose:
+            print(f"自适应温度初始化: T0 = {temperature:.2f} (基于初始成本 {initial_cost:.2f})")
+        
+        return round(temperature, 4)
+    
     def solve(self, initial_solution: Solution) -> Solution:
         """
         执行ALNS算法求解
@@ -110,8 +141,10 @@ class ALNS(BaseSolver):
             print(f"未分配订单: {current_solution.num_unassigned}")
             print("-" * 60)
         
-        # 温度
-        temperature = self.initial_temperature
+        # 自适应温度初始化（参考ALNS标准方法）
+        # T0 = -delta / ln(0.5)，其中delta = tau * initial_cost
+        # tau参数控制初始接受概率
+        temperature = self._calculate_initial_temperature(current_cost)
         
         # 主循环
         iterations_since_improvement = 0

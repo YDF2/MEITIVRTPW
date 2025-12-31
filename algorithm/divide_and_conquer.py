@@ -178,7 +178,7 @@ class DivideAndConquerSolver(BaseSolver):
         verbose: bool = True,
         use_parallel: bool = True,
         max_workers: int = None,
-        skip_global_optimization: bool = False
+        skip_global_optimization: bool = True
     ):
         """
         Args:

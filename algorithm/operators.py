@@ -6,6 +6,7 @@ ALNS破坏与修复算子 (Destroy & Repair Operators)
 
 from typing import List, Tuple, Callable, Optional, Dict
 import random
+import math
 import numpy as np
 import sys
 import os
@@ -45,12 +46,20 @@ class DestroyOperators:
             ("worst_removal", self.worst_removal),
             ("shaw_removal", self.shaw_removal),
             ("route_removal", self.route_removal),
+            ("spatial_proximity_removal", self.spatial_proximity_removal),  # h2: 空间邻近移除
+            ("deadline_based_removal", self.deadline_based_removal),  # h7: 截止时间移除
         ]
         
         # 算子权重 (用于自适应选择)
         self.weights = {name: 1.0 for name, _ in self.operators}
         self.scores = {name: 0.0 for name, _ in self.operators}
         self.usage_counts = {name: 0 for name, _ in self.operators}
+        
+        # UCB参数
+        self.use_ucb = True  # 是否使用UCB算法
+        self.ucb_c = 2.0  # UCB探索系数
+        self.total_iterations = 0  # 总迭代次数
+        self.avg_rewards = {name: 0.0 for name, _ in self.operators}  # 平均奖励
     
     def get_destroy_count(self, solution: Solution) -> int:
         """计算要移除的订单数量"""
@@ -63,12 +72,44 @@ class DestroyOperators:
         return min(count, assigned_count)
     
     def select_operator(self) -> Tuple[str, Callable]:
-        """使用轮盘赌选择破坏算子"""
-        total_weight = sum(self.weights.values())
-        probabilities = [self.weights[name] / total_weight for name, _ in self.operators]
+        """
+        选择破坏算子
+        使用UCB (Upper Confidence Bound) 算法或轮盘赌选择
         
-        idx = np.random.choice(len(self.operators), p=probabilities)
-        return self.operators[idx]
+        UCB公式: Score_i = X̄_i + C * sqrt(2 * ln(N) / n_i)
+        - X̄_i: 算子i的平均奖励
+        - N: 总迭代次数
+        - n_i: 算子i被使用的次数
+        - C: 探索系数
+        """
+        self.total_iterations += 1
+        
+        if self.use_ucb:
+            # 使用UCB算法
+            ucb_scores = {}
+            for name, _ in self.operators:
+                if self.usage_counts[name] == 0:
+                    # 未使用过的算子给予最高优先级
+                    ucb_scores[name] = float('inf')
+                else:
+                    # UCB Score = 平均奖励 + 探索项
+                    exploitation = self.avg_rewards[name]
+                    exploration = self.ucb_c * math.sqrt(
+                        2 * math.log(self.total_iterations) / self.usage_counts[name]
+                    )
+                    ucb_scores[name] = exploitation + exploration
+            
+            # 选择UCB分数最高的算子
+            best_name = max(ucb_scores, key=ucb_scores.get)
+            idx = [name for name, _ in self.operators].index(best_name)
+            return self.operators[idx]
+        else:
+            # 使用传统轮盘赌选择
+            total_weight = sum(self.weights.values())
+            probabilities = [self.weights[name] / total_weight for name, _ in self.operators]
+            
+            idx = np.random.choice(len(self.operators), p=probabilities)
+            return self.operators[idx]
     
     def random_removal(self, solution: Solution) -> List[Order]:
         """
@@ -290,18 +331,156 @@ class DestroyOperators:
         
         return removed_orders
     
-    def update_weights(self, operator_name: str, score: float, decay: float = 0.8):
-        """更新算子权重"""
+    def spatial_proximity_removal(self, solution: Solution) -> List[Order]:
+        """
+        空间邻近移除算子 (h2: Spatial Proximity Removal)
+        
+        移除地理位置非常接近的一组已分配订单
+        这有助于跳出局部最优，重新优化某个区域的订单分配
+        """
+        n = self.get_destroy_count(solution)
+        if n == 0:
+            return []
+        
+        assigned_ids = list(solution.get_assigned_orders())
+        if len(assigned_ids) == 0:
+            return []
+        
+        # 随机选择一个种子订单
+        seed_id = random.choice(assigned_ids)
+        seed_order = solution.get_order_by_id(seed_id)
+        
+        # 计算移除半径（基于网格大小）
+        radius = config.GRID_SIZE * random.uniform(0.15, 0.35)
+        
+        # 找到半径内的所有订单
+        nearby_orders = []
+        for order_id in assigned_ids:
+            if order_id == seed_id:
+                continue
+            order = solution.get_order_by_id(order_id)
+            if order is None:
+                continue
+            
+            # 计算订单与种子订单的平均距离
+            # 考虑取货点和送货点的距离
+            pickup_dist = seed_order.pickup_node.distance_to(order.pickup_node)
+            delivery_dist = seed_order.delivery_node.distance_to(order.delivery_node)
+            avg_dist = (pickup_dist + delivery_dist) / 2
+            
+            if avg_dist <= radius:
+                nearby_orders.append(order)
+        
+        # 移除种子订单和附近订单
+        removed_orders = []
+        if solution.unassign_order(seed_order):
+            removed_orders.append(seed_order)
+        
+        # 按距离排序，优先移除距离更近的
+        nearby_orders.sort(
+            key=lambda o: (
+                seed_order.pickup_node.distance_to(o.pickup_node) +
+                seed_order.delivery_node.distance_to(o.delivery_node)
+            ) / 2
+        )
+        
+        for order in nearby_orders:
+            if len(removed_orders) >= n:
+                break
+            if solution.unassign_order(order):
+                removed_orders.append(order)
+        
+        return removed_orders
+    
+    def deadline_based_removal(self, solution: Solution) -> List[Order]:
+        """
+        截止时间移除算子 (h7: Deadline-based Removal)
+        
+        移除截止时间最紧迫或最晚的订单
+        这些订单往往是造成整个解不可行或成本过高的"钉子户"
+        """
+        n = self.get_destroy_count(solution)
+        if n == 0:
+            return []
+        
+        assigned_ids = list(solution.get_assigned_orders())
+        if len(assigned_ids) == 0:
+            return []
+        
+        # 收集所有已分配订单及其deadline信息
+        order_deadlines = []
+        for order_id in assigned_ids:
+            order = solution.get_order_by_id(order_id)
+            if order is None:
+                continue
+            
+            # 使用送货点的截止时间作为关键指标
+            deadline = order.delivery_node.due_time
+            # 计算时间窗宽度（越窄越紧迫）
+            time_window = order.delivery_node.due_time - order.delivery_node.ready_time
+            
+            order_deadlines.append((order, deadline, time_window))
+        
+        if len(order_deadlines) == 0:
+            return []
+        
+        # 随机选择策略：移除最紧迫的或最晚的
+        strategy = random.choice(['earliest', 'latest', 'tightest'])
+        
+        if strategy == 'earliest':
+            # 移除截止时间最早的订单（最紧迫）
+            order_deadlines.sort(key=lambda x: x[1])
+        elif strategy == 'latest':
+            # 移除截止时间最晚的订单
+            order_deadlines.sort(key=lambda x: x[1], reverse=True)
+        else:  # tightest
+            # 移除时间窗最窄的订单（最难安排）
+            order_deadlines.sort(key=lambda x: x[2])
+        
+        # 移除前N个订单（带随机性）
+        removed_orders = []
+        for i in range(min(n, len(order_deadlines))):
+            # 使用随机化选择，偏向前面的订单
+            p = random.random()
+            idx = int((p ** 2) * min(len(order_deadlines) - i, 5))
+            idx = min(idx, len(order_deadlines) - i - 1)
+            
+            order, _, _ = order_deadlines.pop(idx)
+            if solution.unassign_order(order):
+                removed_orders.append(order)
+        
+        return removed_orders
+    
+    def update_weights(self, operator_name: str, score: float, decay: float = None):
+        """
+        更新算子权重和统计信息
+        
+        参考ALNS标准方法：
+        w_i = w_i * (1 - r) + r * (score_i / count_i)
+        
+        Args:
+            operator_name: 算子名称
+            score: 本次得分（sigma_1, sigma_2, 或 sigma_3）
+            decay: 权重衰减系数（None时使用config.DECAY_RATE）
+        """
+        if decay is None:
+            decay = config.DECAY_RATE
+        
         self.scores[operator_name] += score
         self.usage_counts[operator_name] += 1
         
-        # 定期更新权重
+        # 更新平均奖励（用于UCB）
+        self.avg_rewards[operator_name] = self.scores[operator_name] / self.usage_counts[operator_name]
+        
+        # 分段更新权重（用于轮盘赌）
         if sum(self.usage_counts.values()) % config.SEGMENT_SIZE == 0:
             for name in self.weights:
                 if self.usage_counts[name] > 0:
                     avg_score = self.scores[name] / self.usage_counts[name]
-                    self.weights[name] = decay * self.weights[name] + (1 - decay) * avg_score
-                    self.weights[name] = max(0.1, self.weights[name])  # 防止权重过低
+                    # ALNS标准公式：w_new = w_old * (1-decay) + decay * avg_score
+                    self.weights[name] = self.weights[name] * (1 - decay) + decay * avg_score
+                    # 防止权重过低
+                    self.weights[name] = max(0.1, self.weights[name])
             
             # 重置分数和计数
             self.scores = {name: 0.0 for name in self.scores}
@@ -334,14 +513,43 @@ class RepairOperators:
         self.weights = {name: 1.0 for name, _ in self.operators}
         self.scores = {name: 0.0 for name, _ in self.operators}
         self.usage_counts = {name: 0 for name, _ in self.operators}
+        
+        # UCB参数
+        self.use_ucb = True  # 是否使用UCB算法
+        self.ucb_c = 2.0  # UCB探索系数
+        self.total_iterations = 0  # 总迭代次数
+        self.avg_rewards = {name: 0.0 for name, _ in self.operators}  # 平均奖励
     
     def select_operator(self) -> Tuple[str, Callable]:
-        """使用轮盘赌选择修复算子"""
-        total_weight = sum(self.weights.values())
-        probabilities = [self.weights[name] / total_weight for name, _ in self.operators]
+        """
+        选择修复算子
+        使用UCB (Upper Confidence Bound) 算法或轮盘赌选择
+        """
+        self.total_iterations += 1
         
-        idx = np.random.choice(len(self.operators), p=probabilities)
-        return self.operators[idx]
+        if self.use_ucb:
+            # 使用UCB算法
+            ucb_scores = {}
+            for name, _ in self.operators:
+                if self.usage_counts[name] == 0:
+                    ucb_scores[name] = float('inf')
+                else:
+                    exploitation = self.avg_rewards[name]
+                    exploration = self.ucb_c * math.sqrt(
+                        2 * math.log(self.total_iterations) / self.usage_counts[name]
+                    )
+                    ucb_scores[name] = exploitation + exploration
+            
+            best_name = max(ucb_scores, key=ucb_scores.get)
+            idx = [name for name, _ in self.operators].index(best_name)
+            return self.operators[idx]
+        else:
+            # 使用传统轮盘赌选择
+            total_weight = sum(self.weights.values())
+            probabilities = [self.weights[name] / total_weight for name, _ in self.operators]
+            
+            idx = np.random.choice(len(self.operators), p=probabilities)
+            return self.operators[idx]
     
     def greedy_insertion(self, solution: Solution, orders: List[Order]) -> int:
         """
@@ -517,17 +725,37 @@ class RepairOperators:
         
         return inserted_count
     
-    def update_weights(self, operator_name: str, score: float, decay: float = 0.8):
-        """更新算子权重"""
+    def update_weights(self, operator_name: str, score: float, decay: float = None):
+        """
+        更新算子权重和统计信息
+        
+        参考ALNS标准方法：
+        w_i = w_i * (1 - r) + r * (score_i / count_i)
+        
+        Args:
+            operator_name: 算子名称
+            score: 本次得分
+            decay: 权重衰减系数（None时使用config.DECAY_RATE）
+        """
+        if decay is None:
+            decay = config.DECAY_RATE
+        
         self.scores[operator_name] += score
         self.usage_counts[operator_name] += 1
         
+        # 更新平均奖励（用于UCB）
+        self.avg_rewards[operator_name] = self.scores[operator_name] / self.usage_counts[operator_name]
+        
+        # 分段更新权重（用于轮盘赌）
         if sum(self.usage_counts.values()) % config.SEGMENT_SIZE == 0:
             for name in self.weights:
                 if self.usage_counts[name] > 0:
                     avg_score = self.scores[name] / self.usage_counts[name]
-                    self.weights[name] = decay * self.weights[name] + (1 - decay) * avg_score
+                    # ALNS标准公式：w_new = w_old * (1-decay) + decay * avg_score
+                    self.weights[name] = self.weights[name] * (1 - decay) + decay * avg_score
+                    # 防止权重过低
                     self.weights[name] = max(0.1, self.weights[name])
             
+            # 重置分数和计数
             self.scores = {name: 0.0 for name in self.scores}
             self.usage_counts = {name: 0 for name in self.usage_counts}

@@ -28,6 +28,7 @@ from algorithm.objective import ObjectiveFunction, check_validity
 from algorithm.greedy import GreedyInsertion
 from algorithm.divide_and_conquer import DivideAndConquerSolver
 from algorithm.alns_divide_conquer import ALNSDivideAndConquerSolver
+from algorithm.reinforcement_learning import ReinforcementLearningSolver
 from utils.generator import DataGenerator, generate_problem_instance
 from utils.visualizer import SolutionVisualizer, plot_solution
 from utils.file_io import (
@@ -51,6 +52,7 @@ def create_solver(
         solver_type: 求解器类型
             - 'alns': 标准ALNS（纯启发式）
             - 'alns-dc': ALNS分治（ALNS求解子问题）
+            - 'rl': 强化学习 (Q-Learning)
         max_iterations: 最大迭代次数
         random_seed: 随机种子
         num_orders: 订单数量（用于自动调整参数）
@@ -70,7 +72,7 @@ def create_solver(
         # ALNS分治（使用ALNS求解子问题）
         return ALNSDivideAndConquerSolver(
             num_clusters=None,  # 自动确定
-            skip_global_optimization=False,  # 启用全局优化以生成算子统计
+            skip_global_optimization=True,  # 跳过全局优化以提升大规模问题性能
             sub_iterations=min(300, max_iterations),
             global_iterations=min(50, max_iterations // 10),
             random_seed=random_seed,
@@ -79,8 +81,22 @@ def create_solver(
             max_workers=None
         )
     
+    elif solver_type == 'rl':
+        # 强化学习（Q-learning）
+        return ReinforcementLearningSolver(
+            episodes=max_iterations,  # 使用max_iterations作为episode数
+            learning_rate=0.1,
+            discount_factor=0.9,
+            epsilon=0.2,  # 初始探索率
+            epsilon_decay=0.995,
+            min_epsilon=0.01,
+            random_seed=random_seed,
+            verbose=True,
+            use_greedy_init=True
+        )
+    
     else:
-        raise ValueError(f"未知的求解器类型: {solver_type}。支持的类型: alns, alns-dc")
+        raise ValueError(f"未知的求解器类型: {solver_type}。支持的类型: alns, alns-dc, rl")
 
 
 def run_experiment(
@@ -122,7 +138,8 @@ def run_experiment(
     # 根据solver类型确定显示名称
     solver_display_names = {
         'alns': 'ALNS（纯启发式）',
-        'alns-dc': 'ALNS分治（ALNS并行）'
+        'alns-dc': 'ALNS分治（ALNS并行）',
+        'rl': '强化学习（Q-Learning）'
     }
     solver_name = solver_display_names.get(solver, solver)
     
@@ -310,8 +327,7 @@ def run_experiment(
             save_path=os.path.join(output_dir, "route_visualization.png") if save_results else None
         )
         
-        # 绘制ALNS相关的收敛曲线和算子权重
-        # 对于alns和alns-dc（有全局ALNS）都绘制
+        # 绘制ALNS相关的收敛曲线和算子统计
         has_alns_info = False
         
         if solver == 'alns':
@@ -332,7 +348,7 @@ def run_experiment(
                 repair_ops = solver_instance.repair_ops if hasattr(solver_instance, 'repair_ops') else None
                 print(f"  ✓ 检测到ALNS-DC统计信息: {len(best_history)} 次迭代")
             else:
-                print(f"  ⚠ 未检测到ALNS-DC统计信息 (best_cost_history: {hasattr(solver_instance, 'best_cost_history')}, length: {len(solver_instance.best_cost_history) if hasattr(solver_instance, 'best_cost_history') else 0})")
+                print(f"  ⚠ 未检测到ALNS-DC统计信息")
         
         if has_alns_info:
             # 绘制收敛曲线
@@ -344,7 +360,7 @@ def run_experiment(
                     save_path=os.path.join(output_dir, "convergence.png") if save_results else None
                 )
             
-            # 绘制算子权重
+            # 绘制传统算子权重图
             if destroy_ops is not None and repair_ops is not None:
                 fig3 = visualizer.plot_operator_weights(
                     destroy_ops.weights,
@@ -352,6 +368,36 @@ def run_experiment(
                     title=f"{'ALNS' if solver == 'alns' else 'ALNS分治（全局优化）'} 算子权重分布",
                     save_path=os.path.join(output_dir, "operator_weights.png") if save_results else None
                 )
+                
+                # 【新增】绘制详细的UCB算子统计图（美团SOTA改进）
+                print("  ✓ 生成美团SOTA算法详细统计图...")
+                fig4 = visualizer.plot_operator_statistics(
+                    destroy_ops,
+                    repair_ops,
+                    title=f"美团SOTA算法改进 - UCB算子统计 ({solver_name})",
+                    save_path=os.path.join(output_dir, "meituan_sota_statistics.png") if save_results else None
+                )
+                
+                # 打印详细的算子统计信息
+                print("\n  【美团SOTA算法统计】")
+                print("  " + "=" * 60)
+                print(f"  UCB算子选择: {'启用' if destroy_ops.use_ucb else '禁用'}")
+                print(f"  UCB探索系数C: {destroy_ops.ucb_c}")
+                print(f"  总迭代次数: {destroy_ops.total_iterations}")
+                
+                print("\n  破坏算子详情:")
+                for name, _ in destroy_ops.operators:
+                    count = destroy_ops.usage_counts.get(name, 0)
+                    reward = destroy_ops.avg_rewards.get(name, 0)
+                    marker = "🆕" if name in ['spatial_proximity_removal', 'deadline_based_removal'] else "  "
+                    print(f"    {marker} {name:30s}: 使用{count:4d}次, 平均奖励={reward:.3f}")
+                
+                print("\n  修复算子详情:")
+                for name, _ in repair_ops.operators:
+                    count = repair_ops.usage_counts.get(name, 0)
+                    reward = repair_ops.avg_rewards.get(name, 0)
+                    print(f"       {name:30s}: 使用{count:4d}次, 平均奖励={reward:.3f}")
+                print("  " + "=" * 60)
         
         print("  ✓ 可视化图已生成")
         
@@ -468,11 +514,13 @@ def main():
   python main.py --orders 20 --vehicles 5            # 自定义规模
   python main.py --orders 100 --vehicles 20          # 大规模（自动用alns-dc）
   python main.py --orders 200 --solver alns-dc       # ALNS分治
+  python main.py --orders 50 --solver rl             # 强化学习
   python main.py --benchmark                         # 运行基准测试
 
 求解器选项:
   alns         : 标准ALNS（纯启发式，<100订单）
   alns-dc      : ALNS分治（ALNS并行，>100订单）[默认]
+  rl           : 强化学习（Q-Learning，实验性）
         """
     )
     
@@ -489,8 +537,8 @@ def main():
     parser.add_argument('--seed', type=int, default=42,
                        help='随机种子 (默认: 42)')
     parser.add_argument('--solver', type=str, 
-                       choices=['alns', 'alns-dc'],
-                       help='求解器类型（默认自动选择）')
+                       choices=['alns', 'alns-dc', 'rl'],
+                       help='求解器类型：alns=标准ALNS, alns-dc=ALNS分治, rl=强化学习（默认自动选择）')
     parser.add_argument('--divide-conquer', action='store_true',
                        help='[已弃用] 使用--solver alns-dc代替')
     parser.add_argument('--no-divide-conquer', action='store_true',

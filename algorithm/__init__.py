@@ -6,6 +6,7 @@ from .objective import ObjectiveFunction, check_validity
 from .greedy import GreedyInsertion
 from .operators import DestroyOperators, RepairOperators
 from .alns import ALNS
+from .reinforcement_learning import ReinforcementLearningSolver
 
 __all__ = [
     'ObjectiveFunction', 
@@ -13,5 +14,6 @@ __all__ = [
     'GreedyInsertion', 
     'DestroyOperators', 
     'RepairOperators',
-    'ALNS'
+    'ALNS',
+    'ReinforcementLearningSolver'
 ]

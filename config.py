@@ -38,22 +38,22 @@ WEIGHT_VEHICLE_USAGE = 100.0 # w4: 骑手使用成本权重 (尽量少用骑手)
 
 # ================== ALNS 算法参数 ==================
 MAX_ITERATIONS = 1000    # 最大迭代次数
-SEGMENT_SIZE = 100       # 权重更新的段大小
+SEGMENT_SIZE = 100       # 权重更新的段大小（每100次迭代更新一次权重）
 
 # 模拟退火参数
-INITIAL_TEMPERATURE = 100.0  # 初始温度
-COOLING_RATE = 0.995         # 冷却系数
+INITIAL_TEMPERATURE = 100.0  # 初始温度（会被自适应方法覆盖）
+COOLING_RATE = 0.99          # 冷却系数（参考alns_1.py建议0.995-0.99）
 MIN_TEMPERATURE = 0.01       # 最低温度
 
 # 破坏算子参数
-DESTROY_RATE_MIN = 0.1   # 最小破坏比例
-DESTROY_RATE_MAX = 0.4   # 最大破坏比例
+DESTROY_RATE_MIN = 0.1   # 最小破坏比例（10%）
+DESTROY_RATE_MAX = 0.4   # 最大破坏比例（40%）
 
-# 算子权重更新参数
-SIGMA_1 = 33  # 找到新的全局最优解
-SIGMA_2 = 9   # 找到比当前解更好的解
-SIGMA_3 = 13  # 接受了比当前解差的解
-DECAY_RATE = 0.8  # 权重衰减率
+# 算子权重更新参数（参考ALNS标准方法）
+SIGMA_1 = 33  # 找到新的全局最优解（最高奖励）
+SIGMA_2 = 9   # 找到比当前解更好的解（中等奖励）
+SIGMA_3 = 13  # 接受了比当前解差的解（低奖励，鼓励探索）
+DECAY_RATE = 0.2  # 权重衰减率（1-decay = 0.8为历史权重，decay = 0.2为当前得分）
 
 # ================== 随机种子 ==================
 RANDOM_SEED = 42

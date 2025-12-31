@@ -75,10 +75,18 @@ class ObjectiveFunction:
         pickup_node: Node,
         delivery_node: Node,
         pickup_pos: int,
-        delivery_pos: int
+        delivery_pos: int,
+        use_matching_score: bool = True,
+        alpha: float = 0.7,
+        beta: float = 0.3
     ) -> Tuple[float, bool]:
         """
         计算在指定位置插入订单后的成本增加量
+        
+        引入Matching Degree Score机制：
+        Score = α * Cost + β * Risk
+        - Cost: 传统的成本增加量
+        - Risk: 风险评分（基于时间缓冲）
         
         Args:
             vehicle: 目标骑手
@@ -86,9 +94,12 @@ class ObjectiveFunction:
             delivery_node: 送货点
             pickup_pos: 取货点插入位置
             delivery_pos: 送货点插入位置
+            use_matching_score: 是否使用风险决策评分（默认True）
+            alpha: 成本权重（默认0.7）
+            beta: 风险权重（默认0.3）
         
         Returns:
-            (cost_increase, is_feasible): 成本增加量和是否可行
+            (score, is_feasible): 匹配分数和是否可行
         """
         if pickup_pos > delivery_pos:
             return float('inf'), False
@@ -110,6 +121,17 @@ class ObjectiveFunction:
         new_distance = vehicle.calculate_distance()
         new_violation = vehicle.calculate_time_violation()
         
+        # 计算成本增加
+        cost_increase = (
+            self.w_distance * (new_distance - original_distance) +
+            self.w_time_penalty * (new_violation - original_violation)
+        )
+        
+        # 计算风险（如果启用Matching Score）
+        risk = 0.0
+        if use_matching_score and is_feasible:
+            risk = self._calculate_insertion_risk(vehicle, pickup_pos, delivery_pos + 1)
+        
         # 恢复原始路径
         vehicle.route = old_route
         vehicle.invalidate_cache()
@@ -117,13 +139,62 @@ class ObjectiveFunction:
         if not is_feasible:
             return float('inf'), False
         
-        # 计算成本增加
-        cost_increase = (
-            self.w_distance * (new_distance - original_distance) +
-            self.w_time_penalty * (new_violation - original_violation)
-        )
+        # 返回Matching Score或传统Cost
+        if use_matching_score:
+            score = alpha * cost_increase + beta * risk
+        else:
+            score = cost_increase
         
-        return cost_increase, True
+        return score, True
+    
+    def _calculate_insertion_risk(self, vehicle: Vehicle, pickup_idx: int, delivery_idx: int) -> float:
+        """
+        计算插入风险（基于时间缓冲）
+        
+        Risk = 时间紧张度的加权和
+        - 如果一个节点插入后，骑手剩余缓冲时间很少，风险就高
+        - 缓冲时间 = due_time - arrival_time
+        
+        Args:
+            vehicle: 车辆（已经插入了新订单）
+            pickup_idx: 取货点在route中的索引
+            delivery_idx: 送货点在route中的索引
+        
+        Returns:
+            风险值（越大表示风险越高）
+        """
+        arrival_times = vehicle.get_arrival_times()
+        full_route = vehicle.full_route[1:]  # 排除起始depot
+        
+        risk = 0.0
+        max_risk_per_node = 1000.0  # 最大风险值
+        
+        # 只考虑受影响的节点（插入位置及之后的节点）
+        affected_start = min(pickup_idx, delivery_idx)
+        
+        for i in range(affected_start, len(full_route)):
+            node = full_route[i]
+            arrival = arrival_times[i]
+            
+            # 计算时间缓冲（slack time）
+            slack = node.due_time - arrival
+            
+            if slack < 0:
+                # 违反时间窗，高风险
+                risk += max_risk_per_node
+            elif slack < 10:
+                # 缓冲时间很少（<10分钟），高风险
+                risk += max_risk_per_node * (1 - slack / 10)
+            elif slack < 30:
+                # 缓冲时间较少（10-30分钟），中等风险
+                risk += max_risk_per_node * 0.3 * (1 - (slack - 10) / 20)
+            # else: 缓冲时间充足，风险低
+        
+        # 归一化风险（除以受影响节点数）
+        if len(full_route) > affected_start:
+            risk /= (len(full_route) - affected_start)
+        
+        return risk
 
 
 def check_validity(solution: Solution) -> Tuple[bool, List[str]]:
