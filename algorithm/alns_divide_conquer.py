@@ -26,13 +26,13 @@ class ALNSDivideAndConquerSolver(BaseSolver):
     def __init__(
         self,
         num_clusters: int = None,
-        sub_iterations: int = 300,
-        global_iterations: int = 50,
+        sub_iterations: int = 500,  # 增加子问题迭代次数
+        global_iterations: int = 200,  # 增加全局优化迭代次数
         random_seed: int = 112,
         verbose: bool = True,
         use_parallel: bool = True,
         max_workers: int = None,
-        skip_global_optimization: bool = True
+        skip_global_optimization: bool = False  # 默认启用全局优化
     ):
         """
         Args:

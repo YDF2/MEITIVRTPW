@@ -65,16 +65,18 @@ def create_solver(
         return ALNS(
             max_iterations=max_iterations,
             random_seed=random_seed,
-            verbose=True
+            verbose=True,
+            num_orders=num_orders  # 传递订单数量用于自适应参数
         )
     
     elif solver_type == 'alns-dc':
         # ALNS分治（使用ALNS求解子问题）
+        # 【优化配置】启用全局优化，增加子问题迭代次数
         return ALNSDivideAndConquerSolver(
             num_clusters=None,  # 自动确定
-            skip_global_optimization=True,  # 跳过全局优化以提升大规模问题性能
-            sub_iterations=min(300, max_iterations),
-            global_iterations=min(50, max_iterations // 10),
+            skip_global_optimization=False,  # 【关键】启用全局优化处理边界效应
+            sub_iterations= 100, #max(100, max_iterations),  # 子问题需要足够迭代
+            global_iterations=100, #max(100, max_iterations // 5),  # 全局优化
             random_seed=random_seed,
             verbose=True,
             use_parallel=True,
@@ -160,12 +162,21 @@ def run_experiment(
     initial_solution = generate_problem_instance(
         num_orders=num_orders,
         num_vehicles=num_vehicles,
-        random_seed=random_seed
+        random_seed=random_seed,
+        multi_depot=True  # 使用多站点模式（5个固定站点：四象限+中心）
     )
     
     time_gen = time.time() - time_start_gen
     
-    print(f"  ✓ 配送站位置: ({initial_solution.depot.x:.1f}, {initial_solution.depot.y:.1f})")
+    # 显示配送站信息
+    if len(initial_solution.depots) > 1:
+        print(f"  ✓ 配送站数量: {len(initial_solution.depots)} 个")
+        print(f"    站点位置: ", end="")
+        for i, depot in enumerate(initial_solution.depots):
+            print(f"站点{i}({depot.x:.0f},{depot.y:.0f})", end=" ")
+        print()
+    else:
+        print(f"  ✓ 配送站位置: ({initial_solution.depot.x:.1f}, {initial_solution.depot.y:.1f})")
     print(f"  ✓ 生成订单: {len(initial_solution.orders)} 个")
     print(f"  ✓ 生成骑手: {len(initial_solution.vehicles)} 个")
     print(f"  ✓ 生成耗时: {time_gen:.3f} 秒")
@@ -321,9 +332,13 @@ def run_experiment(
         visualizer = SolutionVisualizer()
         
         # 绘制路径图
+        # 使用实际骑手数而非命令行参数
+        actual_num_vehicles = len(best_solution.vehicles)
+        actual_num_depots = len(best_solution.depots) if hasattr(best_solution, 'depots') and best_solution.depots else 1
+        
         fig1 = visualizer.plot(
             best_solution,
-            title=f"外卖配送路径规划 ({solver_name}) (订单: {num_orders}, 骑手: {num_vehicles})",
+            title=f"外卖配送路径规划 ({solver_name}) (订单: {num_orders}, 骑手: {actual_num_vehicles}, 站点: {actual_num_depots})",
             save_path=os.path.join(output_dir, "route_visualization.png") if save_results else None
         )
         

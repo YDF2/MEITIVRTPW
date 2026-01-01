@@ -33,6 +33,11 @@ def _solve_sub_problem_worker(args):
     
     注意：这个函数必须在模块级别定义才能被pickle序列化
     
+    优化要点：
+    1. 动态调整迭代次数（根据簇大小）
+    2. 传递num_orders参数用于自适应温度和冷却率
+    3. 确保候选骑手筛选正确初始化
+    
     Args:
         args: (cluster_id, orders_data, vehicles_data, depot_data, config_params)
         
@@ -50,7 +55,7 @@ def _solve_sub_problem_worker(args):
             y=depot_data['y']
         )
         
-        # 重建订单
+        # 重建订单 - 【关键】必须完整恢复所有字段
         orders = []
         for o_data in orders_data:
             pickup = Node(
@@ -60,7 +65,11 @@ def _solve_sub_problem_worker(args):
                 y=o_data['pickup']['y'],
                 ready_time=o_data['pickup']['tw_start'],
                 due_time=o_data['pickup']['tw_end'],
-                service_time=o_data['pickup']['service_time']
+                service_time=o_data['pickup']['service_time'],
+                # 【关键字段】恢复容量约束和配对约束所需的字段
+                demand=o_data['pickup'].get('demand', 1),  # 默认取货+1
+                pair_id=o_data['pickup'].get('pair_id'),
+                order_id=o_data['pickup'].get('order_id', o_data['id'])
             )
             delivery = Node(
                 node_id=o_data['delivery']['id'],
@@ -69,7 +78,11 @@ def _solve_sub_problem_worker(args):
                 y=o_data['delivery']['y'],
                 ready_time=o_data['delivery']['tw_start'],
                 due_time=o_data['delivery']['tw_end'],
-                service_time=o_data['delivery']['service_time']
+                service_time=o_data['delivery']['service_time'],
+                # 【关键字段】
+                demand=o_data['delivery'].get('demand', -1),  # 默认送货-1
+                pair_id=o_data['delivery'].get('pair_id'),
+                order_id=o_data['delivery'].get('order_id', o_data['id'])
             )
             order = Order(
                 order_id=o_data['id'],
@@ -91,16 +104,31 @@ def _solve_sub_problem_worker(args):
         # 创建子问题Solution
         sub_solution = Solution(vehicles=vehicles, orders=orders, depot=depot)
         
-        # 使用ALNS求解
-        sub_iterations = solver_params.get('sub_iterations', 300)
+        # 获取参数
+        base_iterations = solver_params.get('sub_iterations', 300)
         random_seed = solver_params.get('random_seed', 42)
+        num_orders = len(orders)
+        num_vehicles = len(vehicles)
         
-        # 使用ALNS求解
+        # 【关键优化】动态调整迭代次数
+        # 大簇需要更多迭代才能收敛
+        if num_orders <= 30:
+            actual_iterations = base_iterations
+        elif num_orders <= 60:
+            actual_iterations = int(base_iterations * 1.5)
+        elif num_orders <= 100:
+            actual_iterations = int(base_iterations * 2.0)
+        else:
+            actual_iterations = int(base_iterations * 2.5)
+        
+        # 【关键优化】传递num_orders和num_vehicles参数，确保自适应参数正确
         solved = solve_pdptw(
             sub_solution,
-            max_iterations=sub_iterations,
+            max_iterations=actual_iterations,
             random_seed=random_seed + cluster_id,
-            verbose=False
+            verbose=False,
+            num_orders=num_orders,  # 传递订单数量用于自适应参数
+            num_vehicles=num_vehicles  # 传递骑手数量用于候选筛选
         )
         
         # 序列化结果 - 保存订单ID和节点类型信息
@@ -122,11 +150,6 @@ def _solve_sub_problem_worker(args):
         
         for vehicle in solved.vehicles:
             if len(vehicle.route) > 0:
-                # 打印原始路径信息
-                print(f"    [DEBUG Worker] 簇{cluster_id} 车辆{vehicle.id} 原始路径长度: {len(vehicle.route)}")
-                for i, node in enumerate(vehicle.route[:3]):  # 只打印前3个
-                    print(f"      节点{i}: order_id={node.order_id}, type={node.node_type}")
-                
                 # 保存路径中每个节点的订单ID和类型（跳过depot）
                 route_nodes = []
                 for node in vehicle.route:
@@ -144,10 +167,6 @@ def _solve_sub_problem_worker(args):
                     'distance': vehicle.calculate_distance(),
                     'time_violation': vehicle.calculate_time_violation()
                 }
-                
-                # 调试输出
-                if len(route_nodes) > 0:
-                    print(f"    [DEBUG] 簇{cluster_id} 车辆{vehicle.id}: {len(route_nodes)}个节点")
                 
                 result_data['vehicles'].append(route_data)
         
@@ -172,13 +191,13 @@ class DivideAndConquerSolver(BaseSolver):
     def __init__(
         self,
         num_clusters: int = None,
-        sub_iterations: int = 300,
-        global_iterations: int = 50,
+        sub_iterations: int = 100,  # 增加子问题迭代次数
+        global_iterations: int = 600,  # 增加全局优化迭代次数
         random_seed: int = 42,
         verbose: bool = True,
         use_parallel: bool = True,
         max_workers: int = None,
-        skip_global_optimization: bool = True
+        skip_global_optimization: bool = False  # 默认启用全局优化
     ):
         """
         Args:
@@ -418,7 +437,10 @@ class DivideAndConquerSolver(BaseSolver):
         """
         将骑手分配给各簇
         
-        策略：基于簇的订单数量按比例分配，每簇至少1个骑手
+        优化策略：
+        1. 基于簇的订单数量按比例分配
+        2. 确保每个簇至少2个骑手（小簇也需要备份）
+        3. 考虑骑手/订单比例，避免某些簇骑手过少
         
         Args:
             solution: 解对象
@@ -430,19 +452,28 @@ class DivideAndConquerSolver(BaseSolver):
         total_orders = sum(len(orders) for orders in clusters.values())
         total_vehicles = len(solution.vehicles)
         
+        # 计算全局骑手/订单比例
+        global_ratio = total_vehicles / total_orders if total_orders > 0 else 1.0
+        
         cluster_vehicles = {}
         assigned_count = 0
+        remaining_clusters = list(clusters.keys())
         
-        # 按比例分配
+        # 第一轮：按比例分配，每簇至少2个骑手
         for i, orders in clusters.items():
-            if i == self.num_clusters - 1:
-                # 最后一个簇分配剩余所有骑手
-                num_vehicles = total_vehicles - assigned_count
-            else:
-                # 按订单比例分配，至少1个
-                ratio = len(orders) / total_orders
-                num_vehicles = max(1, int(total_vehicles * ratio))
-                num_vehicles = min(num_vehicles, total_vehicles - assigned_count - (self.num_clusters - i - 1))
+            num_orders_in_cluster = len(orders)
+            
+            # 按订单数量比例计算骑手数
+            ideal_vehicles = int(num_orders_in_cluster * global_ratio)
+            
+            # 每个簇至少2个骑手（确保有备份）
+            min_vehicles = max(2, num_orders_in_cluster // 6)  # 每个骑手最多6单
+            num_vehicles = max(min_vehicles, ideal_vehicles)
+            
+            # 确保不超过剩余骑手数（给后面的簇留余地）
+            remaining_clusters_count = len(remaining_clusters) - list(remaining_clusters).index(i) - 1
+            max_can_assign = total_vehicles - assigned_count - remaining_clusters_count * 2
+            num_vehicles = min(num_vehicles, max(2, max_can_assign))
             
             # 复制骑手对象
             vehicles = []
@@ -460,6 +491,29 @@ class DivideAndConquerSolver(BaseSolver):
             
             cluster_vehicles[i] = vehicles
             assigned_count += len(vehicles)
+        
+        # 第二轮：分配剩余骑手给订单最多的簇
+        remaining_vehicles = total_vehicles - assigned_count
+        if remaining_vehicles > 0:
+            # 按订单数排序，优先给大簇分配额外骑手
+            sorted_clusters = sorted(clusters.items(), key=lambda x: len(x[1]), reverse=True)
+            for i, (cluster_id, orders) in enumerate(sorted_clusters):
+                if remaining_vehicles <= 0:
+                    break
+                # 每个簇最多再增加2个骑手
+                extra = min(2, remaining_vehicles)
+                for j in range(extra):
+                    idx = assigned_count + j
+                    if idx < total_vehicles:
+                        original_vehicle = solution.vehicles[idx]
+                        new_vehicle = Vehicle(
+                            vehicle_id=original_vehicle.id,
+                            depot=solution.depot,
+                            capacity=original_vehicle.capacity
+                        )
+                        cluster_vehicles[cluster_id].append(new_vehicle)
+                assigned_count += extra
+                remaining_vehicles -= extra
         
         return cluster_vehicles
     
@@ -481,7 +535,7 @@ class DivideAndConquerSolver(BaseSolver):
             'y': depot.y
         }
         
-        # 序列化orders
+        # 序列化orders - 【关键】包含所有必要字段
         orders_data = []
         for order in orders:
             o_data = {
@@ -493,7 +547,11 @@ class DivideAndConquerSolver(BaseSolver):
                     'y': order.pickup_node.y,
                     'tw_start': order.pickup_node.ready_time,
                     'tw_end': order.pickup_node.due_time,
-                    'service_time': order.pickup_node.service_time
+                    'service_time': order.pickup_node.service_time,
+                    # 【关键字段】之前缺失，导致容量约束和配对约束失效
+                    'demand': order.pickup_node.demand,
+                    'pair_id': order.pickup_node.pair_id,
+                    'order_id': order.pickup_node.order_id
                 },
                 'delivery': {
                     'id': order.delivery_node.id,
@@ -502,7 +560,11 @@ class DivideAndConquerSolver(BaseSolver):
                     'y': order.delivery_node.y,
                     'tw_start': order.delivery_node.ready_time,
                     'tw_end': order.delivery_node.due_time,
-                    'service_time': order.delivery_node.service_time
+                    'service_time': order.delivery_node.service_time,
+                    # 【关键字段】
+                    'demand': order.delivery_node.demand,
+                    'pair_id': order.delivery_node.pair_id,
+                    'order_id': order.delivery_node.order_id
                 }
             }
             orders_data.append(o_data)
@@ -606,8 +668,11 @@ class DivideAndConquerSolver(BaseSolver):
             if not orders or not vehicles:
                 continue
             
+            num_orders = len(orders)
+            num_vehicles_in_cluster = len(vehicles)
+            
             if self.verbose:
-                print(f"\n  求解簇 {cluster_id}: {len(orders)}订单, {len(vehicles)}骑手")
+                print(f"\n  求解簇 {cluster_id}: {num_orders}订单, {num_vehicles_in_cluster}骑手")
             
             # 创建子问题
             sub_solution = Solution(
@@ -616,12 +681,24 @@ class DivideAndConquerSolver(BaseSolver):
                 depot=original_solution.depot
             )
             
-            # 使用 ALNS 求解
+            # 【关键优化】动态调整迭代次数
+            if num_orders <= 30:
+                actual_iterations = self.sub_iterations
+            elif num_orders <= 60:
+                actual_iterations = int(self.sub_iterations * 1.5)
+            elif num_orders <= 100:
+                actual_iterations = int(self.sub_iterations * 2.0)
+            else:
+                actual_iterations = int(self.sub_iterations * 2.5)
+            
+            # 使用 ALNS 求解，【关键】传递num_orders和num_vehicles参数
             time_start = time.time()
             alns = ALNS(
-                max_iterations=self.sub_iterations,
+                max_iterations=actual_iterations,
                 random_seed=self.random_seed + cluster_id,
-                verbose=False
+                verbose=False,
+                num_orders=num_orders,  # 传递订单数量用于自适应参数
+                num_vehicles=num_vehicles_in_cluster  # 传递骑手数量用于候选筛选
             )
             solved_solution = alns.solve(sub_solution)
             time_solve = time.time() - time_start
@@ -698,6 +775,10 @@ class DivideAndConquerSolver(BaseSolver):
             depot=original_solution.depot
         )
         
+        # 【修复】保留多站点信息
+        if hasattr(original_solution, 'depots') and original_solution.depots:
+            merged_solution.depots = original_solution.depots
+        
         # 清空所有骑手的路径
         for vehicle in merged_solution.vehicles:
             vehicle.route = []
@@ -727,9 +808,6 @@ class DivideAndConquerSolver(BaseSolver):
             for v_data in result['vehicles']:
                 vehicle_id = v_data['id']
                 route_nodes_info = v_data.get('route_nodes', [])
-                
-                if self.verbose:
-                    print(f"    [DEBUG] 处理车辆{vehicle_id}: {len(route_nodes_info)}个节点")
                 
                 # 找到对应的骑手
                 vehicle = next((v for v in merged_solution.vehicles if v.id == vehicle_id), None)
@@ -776,8 +854,14 @@ class DivideAndConquerSolver(BaseSolver):
         """
         全局优化，处理簇边界效应
         
-        使用较少迭代的 ALNS 进行全局优化
-        添加早停机制：如果连续20次迭代没有改进则提前结束
+        分治策略的关键问题：
+        1. 聚类边界处的订单可能被分配到不优的骑手
+        2. 跨簇的订单重组可能带来显著改进
+        3. 未分配订单需要二次尝试
+        
+        优化策略：
+        1. 使用适量迭代的ALNS进行全局优化
+        2. 破坏率稍大以促进跨簇调整
         
         Args:
             solution: 合并后的解
@@ -785,16 +869,46 @@ class DivideAndConquerSolver(BaseSolver):
         Returns:
             优化后的解
         """
-        # 使用更少的迭代次数，因为子解质量已经很高
-        effective_iterations = min(self.global_iterations, 50)
+        num_orders = len(solution.orders)
+        
+        # 根据问题规模动态调整迭代次数
+        if num_orders <= 100:
+            effective_iterations = self.global_iterations
+        elif num_orders <= 300:
+            effective_iterations = max(100, self.global_iterations)
+        else:
+            # 大规模问题：更多迭代
+            effective_iterations = max(200, self.global_iterations)
+        
+        if self.verbose:
+            print(f"  全局优化迭代次数: {effective_iterations}")
+        
+        num_vehicles = len(solution.vehicles)
+        
+        # 保存输入解的成本，用于比较
+        objective = ObjectiveFunction()
+        input_cost = objective.calculate(solution)
         
         alns = ALNS(
             max_iterations=effective_iterations,
             random_seed=self.random_seed + 999,
-            verbose=False
+            verbose=False,
+            num_orders=num_orders,
+            num_vehicles=num_vehicles
         )
         
         optimized_solution = alns.solve(solution)
+        
+        # 【关键修复】如果优化后成本更高，保留原始解
+        output_cost = objective.calculate(optimized_solution)
+        if output_cost > input_cost:
+            if self.verbose:
+                print(f"  ⚠️ 全局优化未找到更好解，保留输入解 "
+                      f"(输入成本={input_cost:.2f} < 输出成本={output_cost:.2f})")
+            optimized_solution = solution.copy()
+        elif self.verbose:
+            improvement = input_cost - output_cost
+            print(f"  ✓ 全局优化改进: {improvement:.2f} ({improvement/input_cost*100:.2f}%)")
         
         # 保存ALNS实例以便后续可视化
         self.global_alns_solver = alns

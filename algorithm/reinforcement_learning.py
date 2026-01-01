@@ -265,6 +265,10 @@ class ReinforcementLearningSolver(BaseSolver):
             depot=initial_solution.depot
         )
         
+        # 【修复】保留多站点信息
+        if hasattr(initial_solution, 'depots') and initial_solution.depots:
+            solution.depots = initial_solution.depots
+        
         # 复制所有订单作为待分配订单
         all_orders = list(initial_solution.orders.values())
         unassigned_orders = all_orders.copy()
@@ -737,6 +741,10 @@ class ReinforcementLearningSolver(BaseSolver):
             orders=[],
             depot=initial_solution.depot
         )
+        
+        # 【修复】保留多站点信息
+        if hasattr(initial_solution, 'depots') and initial_solution.depots:
+            solution.depots = initial_solution.depots
         
         # 复制订单列表
         all_orders = list(initial_solution.orders.values())

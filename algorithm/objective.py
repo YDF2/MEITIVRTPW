@@ -195,6 +195,140 @@ class ObjectiveFunction:
             risk /= (len(full_route) - affected_start)
         
         return risk
+    
+    def calculate_insertion_cost_fast(
+        self,
+        vehicle: Vehicle,
+        pickup_node: Node,
+        delivery_node: Node,
+        pickup_pos: int,
+        delivery_pos: int
+    ) -> Tuple[float, bool]:
+        """
+        快速增量评估插入成本（无深拷贝优化）
+        
+        关键优化：
+        1. 只计算距离增量（Delta Distance），不修改route
+        2. 使用O(1)的纯数学计算
+        3. 快速容量检查
+        4. 两阶段评估：先快速筛选，再精确检查
+        
+        Args:
+            vehicle: 目标骑手
+            pickup_node: 取货点
+            delivery_node: 送货点
+            pickup_pos: 取货点插入位置
+            delivery_pos: 送货点插入位置（基于原route）
+        
+        Returns:
+            (cost_delta, is_feasible): 成本增量和是否可行
+        """
+        if pickup_pos > delivery_pos:
+            return float('inf'), False
+        
+        route = vehicle.route
+        route_len = len(route)
+        
+        # ========== 阶段1: 快速距离增量计算（O(1)） ==========
+        delta_dist = 0.0
+        
+        # 1.1 计算取货点插入带来的距离变化
+        if pickup_pos == 0:
+            prev_p = vehicle.current_location if vehicle.current_location else vehicle.depot
+        else:
+            prev_p = route[pickup_pos - 1]
+        
+        if pickup_pos < route_len:
+            next_p = route[pickup_pos]
+            # 减去旧边 prev_p -> next_p
+            delta_dist -= prev_p.distance_to(next_p)
+            # 加上新边 prev_p -> pickup_node -> next_p
+            delta_dist += prev_p.distance_to(pickup_node)
+            delta_dist += pickup_node.distance_to(next_p)
+        else:
+            # 插入到末尾
+            delta_dist += prev_p.distance_to(pickup_node)
+        
+        # 1.2 计算送货点插入带来的距离变化
+        # 注意：delivery_pos是基于原route，需要考虑pickup已插入的偏移
+        actual_d_pos = delivery_pos + 1  # pickup插入后，后续索引+1
+        
+        if actual_d_pos == 0:
+            prev_d = vehicle.current_location if vehicle.current_location else vehicle.depot
+        elif actual_d_pos - 1 == pickup_pos:
+            # 送货点紧跟在取货点后面
+            prev_d = pickup_node
+        elif actual_d_pos - 1 < route_len:
+            prev_d = route[actual_d_pos - 1]
+        else:
+            prev_d = route[-1] if route_len > 0 else (vehicle.current_location or vehicle.depot)
+        
+        if actual_d_pos <= route_len:
+            next_d = route[actual_d_pos - 1] if actual_d_pos > 0 and actual_d_pos - 1 < route_len else None
+            if next_d and next_d != pickup_node:
+                # 减去旧边 prev_d -> next_d
+                delta_dist -= prev_d.distance_to(next_d)
+                # 加上新边 prev_d -> delivery_node -> next_d
+                delta_dist += prev_d.distance_to(delivery_node)
+                delta_dist += delivery_node.distance_to(next_d)
+            else:
+                delta_dist += prev_d.distance_to(delivery_node)
+        else:
+            # 插入到末尾
+            delta_dist += prev_d.distance_to(delivery_node)
+        
+        # 距离成本增量
+        cost_delta = self.w_distance * delta_dist
+        
+        # ========== 阶段2: 快速容量检查（O(1)） ==========
+        # 检查最大载重是否超限
+        max_load_in_route = 0
+        current_load = 0
+        for node in route:
+            current_load += node.demand
+            max_load_in_route = max(max_load_in_route, current_load)
+        
+        # 新订单增加的载重
+        new_max_load = max_load_in_route + pickup_node.demand
+        if new_max_load > vehicle.capacity:
+            return float('inf'), False
+        
+        # ========== 阶段3: 快速时间窗检查 ==========
+        # 估算时间窗可行性（不完整模拟，但足够快速筛选）
+        # 计算取货点到达时间的下界
+        if pickup_pos == 0:
+            start_time = 0  # 骑手从depot出发
+            start_node = vehicle.current_location if vehicle.current_location else vehicle.depot
+        else:
+            # 估算前一节点的完成时间（简化：使用ready_time作为下界）
+            prev_node = route[pickup_pos - 1]
+            start_time = prev_node.ready_time + prev_node.service_time
+            start_node = prev_node
+        
+        # 到达取货点的时间
+        travel_time_to_pickup = start_node.distance_to(pickup_node) / config.VEHICLE_SPEED
+        arrival_pickup = start_time + travel_time_to_pickup
+        
+        # 快速检查取货点时间窗
+        if arrival_pickup > pickup_node.due_time + 30:  # 允许30分钟软违反
+            return float('inf'), False
+        
+        # 到达送货点的时间
+        service_pickup = max(arrival_pickup, pickup_node.ready_time) + pickup_node.service_time
+        travel_time_to_delivery = pickup_node.distance_to(delivery_node) / config.VEHICLE_SPEED
+        arrival_delivery = service_pickup + travel_time_to_delivery
+        
+        # 快速检查送货点时间窗
+        if arrival_delivery > delivery_node.due_time + 30:  # 允许30分钟软违反
+            return float('inf'), False
+        
+        # ========== 返回快速评估结果 ==========
+        # 如果距离增量很大，可行但成本高
+        if cost_delta > 500.0:  # 阈值可调
+            return cost_delta, True  # 仍然返回可行，让精确评估决定
+        
+        # 对于距离增量较小的情况，返回可行性
+        return cost_delta, True
 
 
 def check_validity(solution: Solution) -> Tuple[bool, List[str]]:

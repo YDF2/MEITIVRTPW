@@ -492,14 +492,27 @@ class RepairOperators:
     修复算子集合
     
     修复算子负责将移除的订单重新插入解中
+    
+    空间邻近性优化：
+    - 不让位于城市东边的骑手去尝试插入位于城市西边的订单
+    - 对于每个待插入的订单，只选取空间上最近的 K 个骑手作为"候选集合"
     """
     
-    def __init__(self, random_seed: int = None):
+    def __init__(self, random_seed: int = None, num_vehicles: int = None):
         if random_seed is not None:
             random.seed(random_seed)
             np.random.seed(random_seed)
         
         self.objective = ObjectiveFunction()
+        
+        # 候选骑手筛选参数（空间剪枝优化）
+        # 根据骑手总数动态设置候选数量
+        self.use_candidate_filtering = True  # 是否启用候选骑手筛选
+        self._num_vehicles = num_vehicles
+        self._update_max_candidates(num_vehicles)
+        
+        # 空间邻近性阈值（超过此距离的骑手不考虑）
+        self.max_distance_threshold = config.GRID_SIZE * 0.6  # 60%网格大小
         
         # 注册所有修复算子
         self.operators: List[Tuple[str, Callable]] = [
@@ -519,6 +532,29 @@ class RepairOperators:
         self.ucb_c = 2.0  # UCB探索系数
         self.total_iterations = 0  # 总迭代次数
         self.avg_rewards = {name: 0.0 for name, _ in self.operators}  # 平均奖励
+    
+    def _update_max_candidates(self, num_vehicles: int = None):
+        """
+        根据骑手数量动态更新候选骑手数量
+        
+        策略：
+        - 骑手数 <= 10: 考虑所有骑手
+        - 骑手数 <= 30: 考虑50%的骑手
+        - 骑手数 <= 50: 考虑40%的骑手  
+        - 骑手数 > 50: 考虑30%的骑手，但最少10个
+        """
+        if num_vehicles is None:
+            self.max_candidates = 10
+            return
+        
+        if num_vehicles <= 10:
+            self.max_candidates = num_vehicles  # 小规模：全部考虑
+        elif num_vehicles <= 30:
+            self.max_candidates = max(8, int(num_vehicles * 0.5))
+        elif num_vehicles <= 50:
+            self.max_candidates = max(10, int(num_vehicles * 0.4))
+        else:
+            self.max_candidates = max(10, int(num_vehicles * 0.3))
     
     def select_operator(self) -> Tuple[str, Callable]:
         """
@@ -573,20 +609,147 @@ class RepairOperators:
         
         return inserted_count
     
-    def _find_best_insertion(
+    def _get_candidate_vehicles(
         self, 
         solution: Solution, 
         order: Order
+    ) -> List[Vehicle]:
+        """
+        获取订单的候选骑手列表（空间剪枝优化）
+        
+        根据美团文献的Matching Degree Score机制，
+        只选取空间上最近的K个骑手作为候选，避免无意义的尝试。
+        
+        Args:
+            solution: 当前解
+            order: 待插入订单
+        
+        Returns:
+            候选骑手列表（按距离排序）
+        """
+        if not self.use_candidate_filtering:
+            # 不启用筛选，返回所有骑手
+            return solution.vehicles
+        
+        # 计算订单的中心位置（取货点和送货点的中点）
+        order_center_x = (order.pickup_node.x + order.delivery_node.x) / 2
+        order_center_y = (order.pickup_node.y + order.delivery_node.y) / 2
+        
+        # 计算每个骑手到订单中心的距离
+        vehicle_distances = []
+        for vehicle in solution.vehicles:
+            # 骑手的当前位置（开放式VRP的核心）
+            if vehicle.current_location is not None:
+                location = vehicle.current_location
+            elif len(vehicle.route) > 0:
+                # 如果有路径，使用最后一个节点作为当前位置
+                location = vehicle.route[-1]
+            else:
+                # 否则使用depot
+                location = vehicle.depot
+            
+            # 计算曼哈顿距离
+            dist = abs(location.x - order_center_x) + abs(location.y - order_center_y)
+            
+            # 空间邻近性过滤：跳过距离过远的骑手
+            # 不让位于城市东边的骑手去尝试插入位于城市西边的订单
+            if dist > self.max_distance_threshold:
+                continue
+                
+            vehicle_distances.append((vehicle, dist))
+        
+        # 如果所有骑手都太远，放宽限制返回最近的几个
+        if len(vehicle_distances) == 0:
+            # 重新计算，不使用距离阈值
+            for vehicle in solution.vehicles:
+                if vehicle.current_location is not None:
+                    location = vehicle.current_location
+                elif len(vehicle.route) > 0:
+                    location = vehicle.route[-1]
+                else:
+                    location = vehicle.depot
+                dist = abs(location.x - order_center_x) + abs(location.y - order_center_y)
+                vehicle_distances.append((vehicle, dist))
+        
+        # 按距离排序
+        vehicle_distances.sort(key=lambda x: x[1])
+        
+        # 动态更新候选数量（首次使用时根据实际骑手数量调整）
+        if self._num_vehicles is None:
+            self._num_vehicles = len(solution.vehicles)
+            self._update_max_candidates(self._num_vehicles)
+        
+        # 返回最近的K个骑手
+        k = min(self.max_candidates, len(vehicle_distances))
+        candidate_vehicles = [v for v, _ in vehicle_distances[:k]]
+        
+        return candidate_vehicles
+    
+    def _find_best_insertion(
+        self, 
+        solution: Solution, 
+        order: Order,
+        use_fast_eval: bool = True
     ) -> Optional[Tuple[int, int, int]]:
-        """找到最佳插入位置"""
+        """
+        找到最佳插入位置（使用候选骑手筛选和快速增量评估）
+        
+        优化策略：
+        1. 空间剪枝：只考虑最近的K个骑手
+        2. 快速增量评估：先用快速距离增量筛选，再精确检查
+        3. 早停：如果找到成本很小的插入位置，提前结束
+        4. 限制精确评估数量：最多只精确评估top 10个候选
+        
+        Args:
+            solution: 当前解
+            order: 待插入订单
+            use_fast_eval: 是否使用快速增量评估（默认True）
+        """
         best_cost = float('inf')
         best_insertion = None
         
-        for v_idx, vehicle in enumerate(solution.vehicles):
-            route_len = len(vehicle.route)
+        # 获取候选骑手（空间剪枝）
+        candidate_vehicles = self._get_candidate_vehicles(solution, order)
+        
+        # 两阶段评估策略
+        if use_fast_eval:
+            # 阶段1：快速筛选（只计算距离增量）
+            fast_candidates = []
             
-            for p_pos in range(route_len + 1):
-                for d_pos in range(p_pos, route_len + 1):
+            for vehicle in candidate_vehicles:
+                v_idx = solution.vehicles.index(vehicle)
+                route_len = len(vehicle.route)
+                
+                # 限制搜索范围：路径过长时只检查部分位置
+                max_positions = min(route_len + 1, 15)  # 最多检查15个位置
+                
+                for p_pos in range(max_positions):
+                    for d_pos in range(p_pos, min(p_pos + 6, route_len + 1)):  # 取送间隔最多6
+                        # 使用快速增量评估
+                        cost, feasible = self.objective.calculate_insertion_cost_fast(
+                            vehicle,
+                            order.pickup_node,
+                            order.delivery_node,
+                            p_pos,
+                            d_pos
+                        )
+                        
+                        if feasible:
+                            fast_candidates.append((cost, v_idx, p_pos, d_pos, vehicle))
+                            
+                            # 超级早停：找到非常好的候选就停止当前骑手
+                            if cost < 20.0:
+                                break
+                    if fast_candidates and fast_candidates[-1][0] < 20.0:
+                        break
+            
+            # 按成本排序，只精确评估前10个最优候选
+            if fast_candidates:
+                fast_candidates.sort(key=lambda x: x[0])
+                top_k = min(10, len(fast_candidates))
+                
+                # 阶段2：精确评估（完整时间窗检查）
+                for _, v_idx, p_pos, d_pos, vehicle in fast_candidates[:top_k]:
                     cost, feasible = self.objective.calculate_insertion_cost(
                         vehicle,
                         order.pickup_node,
@@ -598,6 +761,40 @@ class RepairOperators:
                     if feasible and cost < best_cost:
                         best_cost = cost
                         best_insertion = (v_idx, p_pos, d_pos)
+                    
+                    # 早停优化：找到足够好的解就停止
+                    if best_cost < 15.0:
+                        return best_insertion
+                
+                # 如果精确评估都失败，使用快速评估的最佳结果
+                if best_insertion is None and fast_candidates:
+                    best = fast_candidates[0]
+                    return (best[1], best[2], best[3])
+        else:
+            # 传统方法（向后兼容）
+            for vehicle in candidate_vehicles:
+                v_idx = solution.vehicles.index(vehicle)
+                route_len = len(vehicle.route)
+                
+                for p_pos in range(route_len + 1):
+                    for d_pos in range(p_pos, route_len + 1):
+                        cost, feasible = self.objective.calculate_insertion_cost(
+                            vehicle,
+                            order.pickup_node,
+                            order.delivery_node,
+                            p_pos,
+                            d_pos
+                        )
+                        
+                        if feasible and cost < best_cost:
+                            best_cost = cost
+                            best_insertion = (v_idx, p_pos, d_pos)
+                        
+                        if best_cost < 10.0:
+                            break
+                
+                if best_cost < 10.0:
+                    break
         
         return best_insertion
     
@@ -652,15 +849,28 @@ class RepairOperators:
         order: Order, 
         k: int
     ) -> Tuple[float, Optional[Tuple[int, int, int]]]:
-        """计算订单的regret-k值"""
-        insertion_costs = []
+        """
+        计算订单的regret-k值
         
-        for v_idx, vehicle in enumerate(solution.vehicles):
+        性能优化：
+        1. 使用候选骑手筛选（空间剪枝）
+        2. 两阶段评估：快速筛选 + 精确验证
+        3. 早停：找到足够多候选后提前结束
+        """
+        # 使用候选骑手筛选（关键优化！）
+        candidate_vehicles = self._get_candidate_vehicles(solution, order)
+        
+        # 阶段1：快速筛选候选插入位置
+        fast_candidates = []
+        
+        for vehicle in candidate_vehicles:
+            v_idx = solution.vehicles.index(vehicle)
             route_len = len(vehicle.route)
             
             for p_pos in range(route_len + 1):
                 for d_pos in range(p_pos, route_len + 1):
-                    cost, feasible = self.objective.calculate_insertion_cost(
+                    # 使用快速增量评估
+                    cost, feasible = self.objective.calculate_insertion_cost_fast(
                         vehicle,
                         order.pickup_node,
                         order.delivery_node,
@@ -669,10 +879,33 @@ class RepairOperators:
                     )
                     
                     if feasible:
-                        insertion_costs.append((cost, v_idx, p_pos, d_pos))
+                        fast_candidates.append((cost, v_idx, p_pos, d_pos, vehicle))
+        
+        if len(fast_candidates) == 0:
+            return float('inf'), None
+        
+        # 按成本排序，只精确验证前 max(k*2, 10) 个候选
+        fast_candidates.sort(key=lambda x: x[0])
+        top_count = max(k * 2, 10)
+        top_candidates = fast_candidates[:min(top_count, len(fast_candidates))]
+        
+        # 阶段2：精确评估
+        insertion_costs = []
+        for fast_cost, v_idx, p_pos, d_pos, vehicle in top_candidates:
+            cost, feasible = self.objective.calculate_insertion_cost(
+                vehicle,
+                order.pickup_node,
+                order.delivery_node,
+                p_pos,
+                d_pos
+            )
+            if feasible:
+                insertion_costs.append((cost, v_idx, p_pos, d_pos))
         
         if len(insertion_costs) == 0:
-            return float('inf'), None
+            # 快速评估通过但精确评估失败，回退到快速结果
+            best = fast_candidates[0]
+            return 0.0, (best[1], best[2], best[3])
         
         insertion_costs.sort(key=lambda x: x[0])
         
@@ -693,19 +926,28 @@ class RepairOperators:
         随机插入算子
         
         随机选择可行的插入位置
+        
+        性能优化：
+        1. 使用候选骑手筛选（空间剪枝）
+        2. 使用快速评估减少计算量
+        3. 限制最大候选数量避免过度搜索
         """
         inserted_count = 0
         random.shuffle(orders)
         
         for order in orders:
+            # 使用候选骑手筛选（关键优化！）
+            candidate_vehicles = self._get_candidate_vehicles(solution, order)
             feasible_insertions = []
             
-            for v_idx, vehicle in enumerate(solution.vehicles):
+            for vehicle in candidate_vehicles:
+                v_idx = solution.vehicles.index(vehicle)
                 route_len = len(vehicle.route)
                 
                 for p_pos in range(route_len + 1):
                     for d_pos in range(p_pos, route_len + 1):
-                        _, feasible = self.objective.calculate_insertion_cost(
+                        # 使用快速评估
+                        _, feasible = self.objective.calculate_insertion_cost_fast(
                             vehicle,
                             order.pickup_node,
                             order.delivery_node,
@@ -715,6 +957,14 @@ class RepairOperators:
                         
                         if feasible:
                             feasible_insertions.append((v_idx, p_pos, d_pos))
+                            
+                        # 限制候选数量，避免过度搜索
+                        if len(feasible_insertions) >= 20:
+                            break
+                    if len(feasible_insertions) >= 20:
+                        break
+                if len(feasible_insertions) >= 20:
+                    break
             
             if feasible_insertions:
                 vehicle_id, p_pos, d_pos = random.choice(feasible_insertions)

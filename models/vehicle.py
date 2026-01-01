@@ -39,6 +39,10 @@ class Vehicle:
         self.depot = depot
         self.route: List['Node'] = []  # 路径中的节点列表
         
+        # 当前位置（开放式VRP核心属性）
+        # 骑手初始在配送站，完成配送后停留在最后送货点
+        self.current_location: Optional['Node'] = depot
+        
         # 缓存信息 (需要在路径变化时更新)
         self._distance: Optional[float] = None
         self._time_violation: Optional[float] = None
@@ -52,13 +56,14 @@ class Vehicle:
     
     @property
     def full_route(self) -> List['Node']:
-        """完整路径 (包含起始和结束的depot)"""
-        if self.depot is None:
+        """完整路径 (开放式VRP: 从current_location出发，不返回depot)"""
+        if self.current_location is None:
             return self.route
-        return [self.depot] + self.route + [self.depot]
+        # 开放式路径：只包含起点，不包含终点返回
+        return [self.current_location] + self.route
     
     def calculate_distance(self) -> float:
-        """计算路径总距离"""
+        """计算路径总距离（开放式VRP：不计算返回depot的距离）"""
         if self._distance is not None:
             return self._distance
             
@@ -69,6 +74,7 @@ class Vehicle:
         total_distance = 0.0
         full_route = self.full_route
         
+        # 开放式路径：只计算从current_location到最后一个节点的距离
         for i in range(len(full_route) - 1):
             total_distance += full_route[i].distance_to(full_route[i + 1])
         

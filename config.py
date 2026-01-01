@@ -10,8 +10,20 @@
 
 # ================== 问题规模 ==================
 NUM_ORDERS = 20          # 订单数量 (每个订单包含1个取货点+1个送货点)
-NUM_VEHICLES = 5         # 骑手数量
+NUM_VEHICLES = 5         # 每个站点的骑手数量
 GRID_SIZE = 100          # 坐标范围 [0, GRID_SIZE]，即 10km x 10km 区域
+
+# ================== 多站点配置 ==================
+# 5个固定站点位置：四象限对称 + 中心
+NUM_DEPOTS = 5
+DEPOT_LOCATIONS = [
+    (25, 25),   # 第三象限（左下）
+    (75, 25),   # 第四象限（右下）
+    (25, 75),   # 第二象限（左上）
+    (75, 75),   # 第一象限（右上）
+    (50, 50),   # 中心
+]
+VEHICLES_PER_DEPOT = NUM_VEHICLES  # 每个站点的骑手数量
 
 # ================== 骑手参数 ==================
 VEHICLE_CAPACITY = 6     # 骑手最大载重能力 (外卖场景通常3-6单)
@@ -24,10 +36,10 @@ VEHICLE_SPEED = 3.3      # 骑手速度 (单位距离/单位时间)
 DETOUR_FACTOR = 1.3
 
 # ================== 时间窗参数 ==================
-TIME_HORIZON = 240       # 时间跨度 (模拟午高峰 4小时 = 240分钟)
-SERVICE_TIME_PICKUP = 10  # 取餐服务时间 (分钟)，含停车进店时间
-SERVICE_TIME_DELIVERY = 20  # 送餐服务时间 (分钟)，含上楼等电梯时间
-TIME_WINDOW_WIDTH =35   # 时间窗宽度 (分钟)
+TIME_HORIZON = 300       # 时间跨度 (模拟午高峰 4小时 = 240分钟)
+SERVICE_TIME_PICKUP = 12  # 取餐服务时间 (分钟)，含停车进店时间
+SERVICE_TIME_DELIVERY = 30  # 送餐服务时间 (分钟)，含上楼等电梯时间
+TIME_WINDOW_WIDTH =45   # 时间窗宽度 (分钟)
 
 # ================== 目标函数权重 ==================
 WEIGHT_DISTANCE = 1.0    # w1: 距离成本权重
@@ -41,13 +53,22 @@ MAX_ITERATIONS = 1000    # 最大迭代次数
 SEGMENT_SIZE = 100       # 权重更新的段大小（每100次迭代更新一次权重）
 
 # 模拟退火参数
-INITIAL_TEMPERATURE = 100.0  # 初始温度（会被自适应方法覆盖）
-COOLING_RATE = 0.99          # 冷却系数（参考alns_1.py建议0.995-0.99）
-MIN_TEMPERATURE = 0.01       # 最低温度
+# 注意：初始温度会被自适应方法根据初始成本和问题规模覆盖
+# 公式: T0 = -tau * initial_cost / ln(0.5)
+# 目标：使初始接受差解的概率约为50%
+INITIAL_TEMPERATURE = 1000.0  # 默认初始温度（备用）
+COOLING_RATE = 0.9975         # 冷却系数（更慢降温=更多探索）
+                              # 0.9975: 适合中大规模问题
+                              # 0.995:  适合小规模问题
+                              # 0.999:  超慢降温（大规模问题）
+MIN_TEMPERATURE = 0.1         # 最低温度（不要设太低，避免完全无法接受差解）
 
 # 破坏算子参数
 DESTROY_RATE_MIN = 0.1   # 最小破坏比例（10%）
 DESTROY_RATE_MAX = 0.4   # 最大破坏比例（40%）
+
+# 空间邻近性参数（用于候选骑手筛选）
+SPATIAL_FILTER_RATIO = 0.6  # 距离阈值 = GRID_SIZE * SPATIAL_FILTER_RATIO
 
 # 算子权重更新参数（参考ALNS标准方法）
 SIGMA_1 = 33  # 找到新的全局最优解（最高奖励）

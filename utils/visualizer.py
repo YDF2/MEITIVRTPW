@@ -66,17 +66,28 @@ class SolutionVisualizer:
         plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
         plt.rcParams['axes.unicode_minus'] = False
         
-        # 1. 绘制配送站
-        depot = solution.depot
-        ax.scatter(
-            depot.x, depot.y, 
-            marker='s', s=300, c='black', 
-            zorder=10, label='配送站'
-        )
-        if show_labels:
-            ax.annotate('Depot', (depot.x, depot.y), 
-                       xytext=(5, 5), textcoords='offset points',
-                       fontsize=10, fontweight='bold')
+        # 1. 绘制配送站（支持多站点）
+        # 优先使用depots列表，如果存在且不为空
+        depots = solution.depots if hasattr(solution, 'depots') and solution.depots else [solution.depot]
+        
+        # 使用不同颜色显示不同站点
+        depot_colors = ['black', 'darkred', 'darkgreen', 'darkblue', 'purple']
+        for depot_idx, depot in enumerate(depots):
+            color = depot_colors[depot_idx % len(depot_colors)]
+            marker_size = 300 if len(depots) == 1 else 200
+            
+            ax.scatter(
+                depot.x, depot.y, 
+                marker='s', s=marker_size, c=color, 
+                edgecolors='white', linewidths=2,
+                zorder=10
+            )
+            if show_labels:
+                label_text = 'Depot' if len(depots) == 1 else f'D{depot_idx}'
+                ax.annotate(label_text, (depot.x, depot.y), 
+                           xytext=(5, 5), textcoords='offset points',
+                           fontsize=10, fontweight='bold', color='white',
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor=color, alpha=0.8))
         
         # 2. 绘制所有节点
         pickup_nodes = []
@@ -163,23 +174,41 @@ class SolutionVisualizer:
             )
         
         # 5. 添加图例
-        legend_elements = [
-            Line2D([0], [0], marker='s', color='w', markerfacecolor='black', 
-                   markersize=12, label='配送站'),
+        legend_elements = []
+        
+        # 添加配送站图例（支持多站点）
+        # 使用原始solution.depots判断，确保显示所有站点
+        actual_depots = solution.depots if hasattr(solution, 'depots') and solution.depots else [solution.depot]
+        if len(actual_depots) == 1:
+            legend_elements.append(
+                Line2D([0], [0], marker='s', color='w', markerfacecolor='black', 
+                       markersize=12, label='配送站')
+            )
+        else:
+            depot_colors = ['black', 'darkred', 'darkgreen', 'darkblue', 'purple']
+            for depot_idx, depot in enumerate(actual_depots):
+                color = depot_colors[depot_idx % len(depot_colors)]
+                legend_elements.append(
+                    Line2D([0], [0], marker='s', color='w', markerfacecolor=color,
+                           markeredgecolor='white', markeredgewidth=1.5,
+                           markersize=10, label=f'站点{depot_idx} ({depot.x:.0f},{depot.y:.0f})')
+                )
+        
+        legend_elements.extend([
             Line2D([0], [0], marker='^', color='w', markerfacecolor='red', 
                    markersize=10, label='取货点 (商家)'),
             Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', 
                    markersize=10, label='送货点 (顾客)'),
-        ]
+        ])
         
-        # 为每个使用中的骑手添加图例
+        # 为所有骑手添加图例
         for idx, vehicle in enumerate(solution.vehicles):
-            if len(vehicle.route) > 0:
-                color = self.COLORS[idx % len(self.COLORS)]
-                legend_elements.append(
-                    Line2D([0], [0], color=color, lw=2, 
-                           label=f'骑手 {vehicle.id}')
-                )
+            color = self.COLORS[idx % len(self.COLORS)]
+            route_status = '' if len(vehicle.route) > 0 else ' (空闲)'
+            legend_elements.append(
+                Line2D([0], [0], color=color, lw=2, 
+                       label=f'骑手 {vehicle.id}{route_status}')
+            )
         
         if len(unassigned_orders) > 0:
             legend_elements.append(
@@ -197,11 +226,13 @@ class SolutionVisualizer:
         
         # 添加统计信息
         stats = solution.get_statistics()
+        # 计算总骑手数（所有车辆）
+        total_vehicles = len(solution.vehicles)
         info_text = (
             f"总成本: {stats['total_cost']:.2f}\n"
             f"总距离: {stats['total_distance']:.2f}\n"
             f"时间违反: {stats['total_time_violation']:.2f}\n"
-            f"使用骑手: {stats['num_vehicles_used']}/{len(solution.vehicles)}\n"
+            f"使用骑手: {stats['num_vehicles_used']}/{total_vehicles}\n"
             f"未分配订单: {stats['num_unassigned']}"
         )
         
@@ -342,12 +373,12 @@ class SolutionVisualizer:
         self,
         destroy_ops,
         repair_ops,
-        title: str = "美团SOTA算法 - UCB算子统计",
+        title: str = "ALNS Operator Statistics (UCB-based)",
         save_path: Optional[str] = None
     ) -> plt.Figure:
         """
         绘制详细的算子统计信息（UCB、使用次数、平均奖励）
-        优化版：更清晰、更美观、更直观
+        优化版：修复中文显示问题，使用英文+中文混合标签
         
         Args:
             destroy_ops: DestroyOperators实例
@@ -355,228 +386,209 @@ class SolutionVisualizer:
             title: 标题
             save_path: 保存路径
         """
-        fig = plt.figure(figsize=(18, 11))
-        gs = fig.add_gridspec(4, 3, hspace=0.35, wspace=0.3, 
-                              top=0.93, bottom=0.05, left=0.08, right=0.97)
+        # 设置中文字体 - 优先使用系统中文字体
+        import matplotlib.font_manager as fm
         
-        plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
+        # 尝试多种中文字体
+        chinese_fonts = ['Microsoft YaHei', 'SimHei', 'SimSun', 'KaiTi', 'FangSong']
+        font_found = None
+        for font_name in chinese_fonts:
+            try:
+                font_path = fm.findfont(fm.FontProperties(family=font_name))
+                if font_path and 'ttf' in font_path.lower():
+                    font_found = font_name
+                    break
+            except:
+                continue
+        
+        if font_found:
+            plt.rcParams['font.sans-serif'] = [font_found, 'DejaVu Sans']
+        else:
+            plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
         plt.rcParams['axes.unicode_minus'] = False
         
+        # 创建图形
+        fig = plt.figure(figsize=(16, 12))
+        
         # 配色方案
-        COLOR_NEW = '#FF6B35'  # 新算子 - 活力橙
-        COLOR_OLD = '#4ECDC4'  # 旧算子 - 青色
-        COLOR_REPAIR = '#A8E6CF'  # 修复算子 - 薄荷绿
+        COLOR_NEW = '#FF6B35'   # 新算子 - 活力橙
+        COLOR_OLD = '#4ECDC4'   # 旧算子 - 青色
+        COLOR_REPAIR = '#95D5B2'  # 修复算子 - 薄荷绿
         
-        # === 第一行：UCB参数展示（整行） ===
-        ax_info = fig.add_subplot(gs[0, :])
-        ax_info.axis('off')
-        
-        # 创建信息框
-        info_text = f"""
-╔═══════════════════════════════════════════════════════════════════════════════════════════╗
-║  美团SOTA算法改进 - 基于UCB的自适应算子选择                                                      ║
-╠═══════════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                           ║
-║  【核心改进】                                                                               ║
-║    ✓ UCB算子选择：启用={destroy_ops.use_ucb}  |  探索系数C={destroy_ops.ucb_c}  |  总迭代={destroy_ops.total_iterations}次          ║
-║    ✓ 新增算子(h2/h7)：空间邻近移除 + 截止时间移除                                               ║
-║    ✓ 风险决策：Matching Score = 0.7×Cost + 0.3×Risk                                       ║
-║    ✓ 真实建模：共享取货点(≤1/3) + 5km配送限制                                                  ║
-║                                                                                           ║
-║  【UCB公式】Score = 平均奖励 + C × √(2×ln(N)/n)  ➜  智能平衡探索与利用                          ║
-╚═══════════════════════════════════════════════════════════════════════════════════════════╝
-        """
-        ax_info.text(0.5, 0.5, info_text, fontsize=10.5, family='monospace',
-                    ha='center', va='center',
-                    bbox=dict(boxstyle='round,pad=0.8', facecolor='#E8F4F8', 
-                             edgecolor='#2E86AB', linewidth=2, alpha=0.9))
-        
-        # === 第二行：破坏算子对比图 ===
+        # === 获取数据 ===
         destroy_names = [name for name, _ in destroy_ops.operators]
         destroy_counts = [destroy_ops.usage_counts.get(name, 0) for name in destroy_names]
         destroy_rewards = [destroy_ops.avg_rewards.get(name, 0) for name in destroy_names]
         
-        # 简化算子名称以便显示
-        destroy_names_short = []
-        for name in destroy_names:
-            if name == 'spatial_proximity_removal':
-                destroy_names_short.append('🆕 h2-空间邻近')
-            elif name == 'deadline_based_removal':
-                destroy_names_short.append('🆕 h7-截止时间')
-            elif name == 'random_removal':
-                destroy_names_short.append('随机移除')
-            elif name == 'worst_removal':
-                destroy_names_short.append('最差移除')
-            elif name == 'shaw_removal':
-                destroy_names_short.append('Shaw移除')
-            elif name == 'route_removal':
-                destroy_names_short.append('路径移除')
-            else:
-                destroy_names_short.append(name[:10])
-        
-        # 颜色编码
-        colors = [COLOR_NEW if 'h2' in n or 'h7' in n else COLOR_OLD 
-                  for n in destroy_names_short]
-        
-        # 左图：破坏算子使用次数
-        ax1 = fig.add_subplot(gs[1, 0])
-        y_pos = np.arange(len(destroy_names_short))
-        bars = ax1.barh(y_pos, destroy_counts, color=colors, edgecolor='black', linewidth=1.2)
-        ax1.set_yticks(y_pos)
-        ax1.set_yticklabels(destroy_names_short, fontsize=10)
-        ax1.set_xlabel('使用次数', fontsize=11, fontweight='bold')
-        ax1.set_title('破坏算子 - 使用频率', fontsize=12, fontweight='bold', pad=10)
-        ax1.grid(axis='x', alpha=0.3, linestyle='--')
-        
-        # 添加数值标签
-        for i, (bar, count) in enumerate(zip(bars, destroy_counts)):
-            if count > 0:
-                ax1.text(count, i, f' {count}', va='center', fontsize=9, fontweight='bold')
-        
-        # 中图：破坏算子平均奖励
-        ax2 = fig.add_subplot(gs[1, 1])
-        bars = ax2.barh(y_pos, destroy_rewards, color=colors, edgecolor='black', linewidth=1.2)
-        ax2.set_yticks(y_pos)
-        ax2.set_yticklabels(destroy_names_short, fontsize=10)
-        ax2.set_xlabel('平均奖励(UCB)', fontsize=11, fontweight='bold')
-        ax2.set_title('破坏算子 - 奖励评分', fontsize=12, fontweight='bold', pad=10)
-        ax2.grid(axis='x', alpha=0.3, linestyle='--')
-        
-        # 添加数值标签
-        for i, (bar, reward) in enumerate(zip(bars, destroy_rewards)):
-            if reward > 0:
-                ax2.text(reward, i, f' {reward:.2f}', va='center', fontsize=9, fontweight='bold')
-        
-        # 右图：UCB Score可视化
-        ax3 = fig.add_subplot(gs[1, 2])
-        ucb_scores = []
-        for name, count, reward in zip(destroy_names, destroy_counts, destroy_rewards):
-            if count > 0 and destroy_ops.total_iterations > 0:
-                exploration = destroy_ops.ucb_c * np.sqrt(
-                    2 * np.log(destroy_ops.total_iterations) / count
-                )
-                ucb_scores.append(reward + exploration)
-            else:
-                ucb_scores.append(reward)
-        
-        bars = ax3.barh(y_pos, ucb_scores, color=colors, edgecolor='black', linewidth=1.2)
-        ax3.set_yticks(y_pos)
-        ax3.set_yticklabels(destroy_names_short, fontsize=10)
-        ax3.set_xlabel('UCB总分', fontsize=11, fontweight='bold')
-        ax3.set_title('破坏算子 - UCB选择评分', fontsize=12, fontweight='bold', pad=10)
-        ax3.grid(axis='x', alpha=0.3, linestyle='--')
-        
-        for i, (bar, score) in enumerate(zip(bars, ucb_scores)):
-            if score > 0:
-                ax3.text(score, i, f' {score:.2f}', va='center', fontsize=9, fontweight='bold')
-        
-        # === 第三行：修复算子统计 ===
         repair_names = [name for name, _ in repair_ops.operators]
         repair_counts = [repair_ops.usage_counts.get(name, 0) for name in repair_names]
         repair_rewards = [repair_ops.avg_rewards.get(name, 0) for name in repair_names]
         
-        # 简化修复算子名称
-        repair_names_short = []
+        # 算子名称映射（使用英文为主，避免字体问题）
+        destroy_labels = []
+        for name in destroy_names:
+            if name == 'spatial_proximity_removal':
+                destroy_labels.append('[NEW] h2-Spatial')
+            elif name == 'deadline_based_removal':
+                destroy_labels.append('[NEW] h7-Deadline')
+            elif name == 'random_removal':
+                destroy_labels.append('Random')
+            elif name == 'worst_removal':
+                destroy_labels.append('Worst')
+            elif name == 'shaw_removal':
+                destroy_labels.append('Shaw')
+            elif name == 'route_removal':
+                destroy_labels.append('Route')
+            else:
+                destroy_labels.append(name[:12])
+        
+        repair_labels = []
         for name in repair_names:
             if name == 'greedy_insertion':
-                repair_names_short.append('贪婪插入')
+                repair_labels.append('Greedy')
             elif name == 'regret_2_insertion':
-                repair_names_short.append('Regret-2插入')
+                repair_labels.append('Regret-2')
             elif name == 'regret_3_insertion':
-                repair_names_short.append('Regret-3插入')
+                repair_labels.append('Regret-3')
             elif name == 'random_insertion':
-                repair_names_short.append('随机插入')
+                repair_labels.append('Random')
             else:
-                repair_names_short.append(name[:10])
+                repair_labels.append(name[:12])
         
-        colors_repair = [COLOR_REPAIR] * len(repair_names_short)
-        y_pos_repair = np.arange(len(repair_names_short))
+        # 标记新算子颜色
+        destroy_colors = [COLOR_NEW if '[NEW]' in label else COLOR_OLD for label in destroy_labels]
         
-        # 左图：修复算子使用次数
-        ax4 = fig.add_subplot(gs[2, 0])
-        bars = ax4.barh(y_pos_repair, repair_counts, color=colors_repair, 
-                       edgecolor='#2D6A4F', linewidth=1.2)
-        ax4.set_yticks(y_pos_repair)
-        ax4.set_yticklabels(repair_names_short, fontsize=10)
-        ax4.set_xlabel('使用次数', fontsize=11, fontweight='bold')
-        ax4.set_title('修复算子 - 使用频率', fontsize=12, fontweight='bold', pad=10)
-        ax4.grid(axis='x', alpha=0.3, linestyle='--')
+        # 计算UCB分数
+        def calc_ucb_scores(names, counts, rewards, ops):
+            scores = []
+            for name, count, reward in zip(names, counts, rewards):
+                if count > 0 and ops.total_iterations > 0:
+                    exploration = ops.ucb_c * np.sqrt(2 * np.log(ops.total_iterations) / count)
+                    scores.append(reward + exploration)
+                else:
+                    scores.append(reward)
+            return scores
         
-        for i, (bar, count) in enumerate(zip(bars, repair_counts)):
+        destroy_ucb = calc_ucb_scores(destroy_names, destroy_counts, destroy_rewards, destroy_ops)
+        repair_ucb = calc_ucb_scores(repair_names, repair_counts, repair_rewards, repair_ops)
+        
+        # === 布局: 3行2列 ===
+        # 第1行: 信息面板
+        # 第2行: 破坏算子 (使用次数 | UCB评分)
+        # 第3行: 修复算子 (使用次数 | UCB评分)
+        
+        gs = fig.add_gridspec(3, 2, height_ratios=[0.8, 1.5, 1.2], 
+                              hspace=0.35, wspace=0.25,
+                              top=0.92, bottom=0.08, left=0.10, right=0.95)
+        
+        # === 第1行: 信息面板 ===
+        ax_info = fig.add_subplot(gs[0, :])
+        ax_info.axis('off')
+        
+        info_lines = [
+            f"UCB Selection: {'Enabled' if destroy_ops.use_ucb else 'Disabled'}",
+            f"Exploration Coefficient C = {destroy_ops.ucb_c}",
+            f"Total Iterations = {destroy_ops.total_iterations}",
+            f"New Operators: h2-Spatial Proximity, h7-Deadline Based",
+            f"UCB Formula: Score = Avg_Reward + C * sqrt(2*ln(N)/n)"
+        ]
+        
+        info_text = "  |  ".join(info_lines[:3]) + "\n" + "  |  ".join(info_lines[3:])
+        
+        ax_info.text(0.5, 0.5, info_text, fontsize=11, 
+                    ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.6', facecolor='#E8F4F8', 
+                             edgecolor='#2E86AB', linewidth=2, alpha=0.95),
+                    family='DejaVu Sans')
+        
+        # === 第2行: 破坏算子 ===
+        y_pos_d = np.arange(len(destroy_labels))
+        
+        # 左: 使用次数
+        ax1 = fig.add_subplot(gs[1, 0])
+        bars1 = ax1.barh(y_pos_d, destroy_counts, color=destroy_colors, 
+                        edgecolor='#333333', linewidth=0.8, height=0.7)
+        ax1.set_yticks(y_pos_d)
+        ax1.set_yticklabels(destroy_labels, fontsize=11)
+        ax1.set_xlabel('Usage Count', fontsize=11, fontweight='bold')
+        ax1.set_title('Destroy Operators - Usage Frequency', fontsize=13, fontweight='bold', pad=12)
+        ax1.grid(axis='x', alpha=0.3, linestyle='--')
+        ax1.set_xlim(0, max(destroy_counts) * 1.15 if max(destroy_counts) > 0 else 1)
+        
+        for i, count in enumerate(destroy_counts):
             if count > 0:
-                ax4.text(count, i, f' {count}', va='center', fontsize=9, fontweight='bold')
+                ax1.text(count + max(destroy_counts)*0.02, i, str(count), 
+                        va='center', fontsize=10, fontweight='bold')
         
-        # 中图：修复算子平均奖励
-        ax5 = fig.add_subplot(gs[2, 1])
-        bars = ax5.barh(y_pos_repair, repair_rewards, color=colors_repair,
-                       edgecolor='#2D6A4F', linewidth=1.2)
-        ax5.set_yticks(y_pos_repair)
-        ax5.set_yticklabels(repair_names_short, fontsize=10)
-        ax5.set_xlabel('平均奖励(UCB)', fontsize=11, fontweight='bold')
-        ax5.set_title('修复算子 - 奖励评分', fontsize=12, fontweight='bold', pad=10)
-        ax5.grid(axis='x', alpha=0.3, linestyle='--')
+        # 右: UCB评分
+        ax2 = fig.add_subplot(gs[1, 1])
+        bars2 = ax2.barh(y_pos_d, destroy_ucb, color=destroy_colors,
+                        edgecolor='#333333', linewidth=0.8, height=0.7)
+        ax2.set_yticks(y_pos_d)
+        ax2.set_yticklabels(destroy_labels, fontsize=11)
+        ax2.set_xlabel('UCB Score', fontsize=11, fontweight='bold')
+        ax2.set_title('Destroy Operators - UCB Selection Score', fontsize=13, fontweight='bold', pad=12)
+        ax2.grid(axis='x', alpha=0.3, linestyle='--')
+        ax2.set_xlim(0, max(destroy_ucb) * 1.15 if max(destroy_ucb) > 0 else 1)
         
-        for i, (bar, reward) in enumerate(zip(bars, repair_rewards)):
-            if reward > 0:
-                ax5.text(reward, i, f' {reward:.2f}', va='center', fontsize=9, fontweight='bold')
-        
-        # 右图：修复算子UCB Score
-        ax6 = fig.add_subplot(gs[2, 2])
-        ucb_scores_repair = []
-        for name, count, reward in zip(repair_names, repair_counts, repair_rewards):
-            if count > 0 and repair_ops.total_iterations > 0:
-                exploration = repair_ops.ucb_c * np.sqrt(
-                    2 * np.log(repair_ops.total_iterations) / count
-                )
-                ucb_scores_repair.append(reward + exploration)
-            else:
-                ucb_scores_repair.append(reward)
-        
-        bars = ax6.barh(y_pos_repair, ucb_scores_repair, color=colors_repair,
-                       edgecolor='#2D6A4F', linewidth=1.2)
-        ax6.set_yticks(y_pos_repair)
-        ax6.set_yticklabels(repair_names_short, fontsize=10)
-        ax6.set_xlabel('UCB总分', fontsize=11, fontweight='bold')
-        ax6.set_title('修复算子 - UCB选择评分', fontsize=12, fontweight='bold', pad=10)
-        ax6.grid(axis='x', alpha=0.3, linestyle='--')
-        
-        for i, (bar, score) in enumerate(zip(bars, ucb_scores_repair)):
+        for i, score in enumerate(destroy_ucb):
             if score > 0:
-                ax6.text(score, i, f' {score:.2f}', va='center', fontsize=9, fontweight='bold')
+                ax2.text(score + max(destroy_ucb)*0.02, i, f'{score:.2f}', 
+                        va='center', fontsize=10, fontweight='bold')
         
-        # === 第四行：算子性能对比雷达图 ===
-        ax7 = fig.add_subplot(gs[3, :], projection='polar')
+        # === 第3行: 修复算子 ===
+        y_pos_r = np.arange(len(repair_labels))
+        repair_colors = [COLOR_REPAIR] * len(repair_labels)
         
-        # 准备雷达图数据
-        categories = destroy_names_short
-        values_count = [c / max(destroy_counts) if max(destroy_counts) > 0 else 0 
-                       for c in destroy_counts]
-        values_reward = [r / max(destroy_rewards) if max(destroy_rewards) > 0 else 0 
-                        for r in destroy_rewards]
+        # 左: 使用次数
+        ax3 = fig.add_subplot(gs[2, 0])
+        bars3 = ax3.barh(y_pos_r, repair_counts, color=repair_colors,
+                        edgecolor='#2D6A4F', linewidth=0.8, height=0.6)
+        ax3.set_yticks(y_pos_r)
+        ax3.set_yticklabels(repair_labels, fontsize=11)
+        ax3.set_xlabel('Usage Count', fontsize=11, fontweight='bold')
+        ax3.set_title('Repair Operators - Usage Frequency', fontsize=13, fontweight='bold', pad=12)
+        ax3.grid(axis='x', alpha=0.3, linestyle='--')
+        ax3.set_xlim(0, max(repair_counts) * 1.15 if max(repair_counts) > 0 else 1)
         
-        angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
-        values_count += values_count[:1]
-        values_reward += values_reward[:1]
-        angles += angles[:1]
+        for i, count in enumerate(repair_counts):
+            if count > 0:
+                ax3.text(count + max(repair_counts)*0.02, i, str(count),
+                        va='center', fontsize=10, fontweight='bold')
         
-        ax7.plot(angles, values_count, 'o-', linewidth=2, label='使用频率(归一化)', color='#FF6B35')
-        ax7.fill(angles, values_count, alpha=0.25, color='#FF6B35')
-        ax7.plot(angles, values_reward, 's-', linewidth=2, label='平均奖励(归一化)', color='#4ECDC4')
-        ax7.fill(angles, values_reward, alpha=0.25, color='#4ECDC4')
+        # 右: UCB评分
+        ax4 = fig.add_subplot(gs[2, 1])
+        bars4 = ax4.barh(y_pos_r, repair_ucb, color=repair_colors,
+                        edgecolor='#2D6A4F', linewidth=0.8, height=0.6)
+        ax4.set_yticks(y_pos_r)
+        ax4.set_yticklabels(repair_labels, fontsize=11)
+        ax4.set_xlabel('UCB Score', fontsize=11, fontweight='bold')
+        ax4.set_title('Repair Operators - UCB Selection Score', fontsize=13, fontweight='bold', pad=12)
+        ax4.grid(axis='x', alpha=0.3, linestyle='--')
+        ax4.set_xlim(0, max(repair_ucb) * 1.15 if max(repair_ucb) > 0 else 1)
         
-        ax7.set_xticks(angles[:-1])
-        ax7.set_xticklabels(categories, fontsize=9)
-        ax7.set_ylim(0, 1)
-        ax7.set_title('破坏算子性能雷达图', fontsize=12, fontweight='bold', pad=20)
-        ax7.legend(loc='upper right', bbox_to_anchor=(1.2, 1.1), fontsize=10)
-        ax7.grid(True, alpha=0.3)
+        for i, score in enumerate(repair_ucb):
+            if score > 0:
+                ax4.text(score + max(repair_ucb)*0.02, i, f'{score:.2f}',
+                        va='center', fontsize=10, fontweight='bold')
+        
+        # 添加图例说明
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor=COLOR_NEW, edgecolor='#333', label='New Operators (h2/h7)'),
+            Patch(facecolor=COLOR_OLD, edgecolor='#333', label='Traditional Operators'),
+            Patch(facecolor=COLOR_REPAIR, edgecolor='#2D6A4F', label='Repair Operators')
+        ]
+        fig.legend(handles=legend_elements, loc='lower center', ncol=3, 
+                   fontsize=10, bbox_to_anchor=(0.5, 0.01))
         
         # 总标题
         fig.suptitle(title, fontsize=16, fontweight='bold', y=0.98)
         
         if save_path:
-            plt.savefig(save_path, dpi=200, bbox_inches='tight')
-            print(f"✓ 算子统计图已保存至: {save_path}")
+            plt.savefig(save_path, dpi=150, bbox_inches='tight', 
+                       facecolor='white', edgecolor='none')
+            print(f"Operator statistics saved to: {save_path}")
         
         return fig
 

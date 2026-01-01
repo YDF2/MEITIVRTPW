@@ -6,6 +6,7 @@
 
 from typing import List, Dict, Set, Optional, TYPE_CHECKING
 import copy as copy_module
+import numpy as np
 
 if TYPE_CHECKING:
     from .node import Node, Order
@@ -36,6 +37,9 @@ class Solution:
         self.depot = depot
         self.unassigned_orders: List['Order'] = list(orders)  # 初始时所有订单未分配
         
+        # 多站点支持：存储所有站点
+        self.depots: List['Node'] = [depot]  # 默认单站点，可以通过外部设置为多站点
+        
         # 构建节点字典
         self.nodes: Dict[int, 'Node'] = {depot.id: depot}
         for order in orders:
@@ -44,6 +48,87 @@ class Solution:
         
         # 缓存
         self._total_cost: Optional[float] = None
+        
+        # ========== 静态近邻缓存（优化核心） ==========
+        self._distance_matrix: Optional[np.ndarray] = None
+        self._node_id_to_index: Optional[Dict[int, int]] = None
+        self._nearest_neighbors: Optional[Dict[int, List[int]]] = None
+        self._build_distance_cache()
+    
+    def _build_distance_cache(self, k_neighbors: int = 10):
+        """
+        构建距离矩阵和最近邻居缓存
+        
+        Args:
+            k_neighbors: 为每个节点保存的最近邻居数量
+        """
+        node_list = list(self.nodes.values())
+        n = len(node_list)
+        
+        # 构建节点ID到索引的映射
+        self._node_id_to_index = {node.id: i for i, node in enumerate(node_list)}
+        
+        # 构建距离矩阵
+        self._distance_matrix = np.zeros((n, n))
+        for i, node1 in enumerate(node_list):
+            for j, node2 in enumerate(node_list):
+                if i != j:
+                    self._distance_matrix[i, j] = node1.distance_to(node2)
+        
+        # 为每个节点计算最近的k个邻居
+        self._nearest_neighbors = {}
+        for i, node in enumerate(node_list):
+            # 获取距离并排序
+            distances = self._distance_matrix[i].copy()
+            distances[i] = float('inf')  # 排除自己
+            
+            # 获取最近的k个邻居的索引
+            k = min(k_neighbors, n - 1)
+            nearest_indices = np.argpartition(distances, k)[:k]
+            nearest_indices = nearest_indices[np.argsort(distances[nearest_indices])]
+            
+            # 转换为节点ID
+            nearest_node_ids = [node_list[idx].id for idx in nearest_indices]
+            self._nearest_neighbors[node.id] = nearest_node_ids
+    
+    def get_distance(self, node1_id: int, node2_id: int) -> float:
+        """
+        快速获取两个节点之间的距离（使用缓存）
+        
+        Args:
+            node1_id: 第一个节点ID
+            node2_id: 第二个节点ID
+        
+        Returns:
+            曼哈顿距离
+        """
+        if self._distance_matrix is None or self._node_id_to_index is None:
+            # 缓存未构建，直接计算
+            return self.nodes[node1_id].distance_to(self.nodes[node2_id])
+        
+        i = self._node_id_to_index[node1_id]
+        j = self._node_id_to_index[node2_id]
+        return self._distance_matrix[i, j]
+    
+    def get_nearest_neighbors(self, node_id: int, k: int = None) -> List[int]:
+        """
+        获取节点的最近邻居节点ID列表
+        
+        Args:
+            node_id: 节点ID
+            k: 返回的邻居数量（如果为None则返回所有缓存的邻居）
+        
+        Returns:
+            最近邻居节点ID列表（按距离排序）
+        """
+        if self._nearest_neighbors is None:
+            return []
+        
+        neighbors = self._nearest_neighbors.get(node_id, [])
+        if k is not None:
+            neighbors = neighbors[:k]
+        
+        return neighbors
     
     def invalidate_cache(self):
         """使缓存失效"""
@@ -216,6 +301,12 @@ class Solution:
         new_solution.nodes = self.nodes.copy()
         new_solution.unassigned_orders = list(self.unassigned_orders)
         new_solution._total_cost = None
+        
+        # 【修复】复制多站点信息
+        if hasattr(self, 'depots'):
+            new_solution.depots = self.depots  # depots列表可以共享（节点对象不可变）
+        else:
+            new_solution.depots = [self.depot]  # 向后兼容
         
         return new_solution
     

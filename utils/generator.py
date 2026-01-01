@@ -48,18 +48,73 @@ class DataGenerator:
             random.seed(random_seed)
             np.random.seed(random_seed)
     
-    def generate_depot(self) -> Node:
-        """生成配送站节点 (通常位于中心位置)"""
+    def generate_depot(self, depot_id: int = 0, x: float = None, y: float = None) -> Node:
+        """
+        生成配送站节点
+        
+        Args:
+            depot_id: 站点ID
+            x: x坐标（如果为None则使用中心位置）
+            y: y坐标（如果为None则使用中心位置）
+        """
+        if x is None:
+            x = self.grid_size / 2
+        if y is None:
+            y = self.grid_size / 2
+            
         return Node(
-            node_id=0,
-            x=self.grid_size / 2,
-            y=self.grid_size / 2,
+            node_id=depot_id,
+            x=x,
+            y=y,
             node_type=NodeType.DEPOT,
             demand=0,
             ready_time=0,
             due_time=self.time_horizon,
             service_time=0
         )
+    
+    def generate_depots(self, depot_locations: List[Tuple[float, float]] = None) -> List[Node]:
+        """
+        生成多个配送站节点
+        
+        Args:
+            depot_locations: 站点位置列表 [(x, y), ...]，如果为None则使用config中的配置
+        
+        Returns:
+            站点节点列表
+        """
+        if depot_locations is None:
+            depot_locations = config.DEPOT_LOCATIONS
+        
+        depots = []
+        for i, (x, y) in enumerate(depot_locations):
+            depot = self.generate_depot(depot_id=i, x=x, y=y)
+            depots.append(depot)
+        
+        return depots
+    
+    def find_nearest_depot(self, x: float, y: float, depots: List[Node]) -> Node:
+        """
+        找到距离指定坐标最近的配送站
+        
+        Args:
+            x: x坐标
+            y: y坐标
+            depots: 配送站列表
+        
+        Returns:
+            最近的配送站
+        """
+        min_dist = float('inf')
+        nearest_depot = depots[0]
+        
+        for depot in depots:
+            dist = abs(x - depot.x) + abs(y - depot.y)  # 曼哈顿距离
+            if dist < min_dist:
+                min_dist = dist
+                nearest_depot = depot
+        
+        return nearest_depot
     
     def generate_pickup_locations(self, num_locations: int) -> List[Tuple[float, float, float, float]]:
         """
@@ -254,62 +309,116 @@ class DataGenerator:
     
     def generate_vehicle(self, vehicle_id: int, depot: Node) -> Vehicle:
         """生成一个骑手"""
-        return Vehicle(
+        vehicle = Vehicle(
             vehicle_id=vehicle_id,
             capacity=self.vehicle_capacity,
             speed=self.vehicle_speed,
             detour_factor=config.DETOUR_FACTOR,
             depot=depot
         )
+        # 开放式VRP：骑手初始位置在配送站
+        vehicle.current_location = depot
+        return vehicle
     
     def generate_vehicles(self, num_vehicles: int, depot: Node) -> List[Vehicle]:
-        """生成多个骑手"""
+        """生成属于单个站点的多个骑手"""
         return [self.generate_vehicle(i, depot) for i in range(num_vehicles)]
+    
+    def generate_vehicles_multi_depot(self, depots: List[Node], vehicles_per_depot: int = None) -> List[Vehicle]:
+        """
+        生成多站点骑手
+        
+        Args:
+            depots: 配送站列表
+            vehicles_per_depot: 每个站点的骑手数量（如果为None则使用config配置）
+        
+        Returns:
+            所有骑手列表
+        """
+        if vehicles_per_depot is None:
+            vehicles_per_depot = config.NUM_VEHICLES  # 使用NUM_VEHICLES作为每站点骑手数
+        
+        all_vehicles = []
+        vehicle_id_counter = 0
+        
+        for depot in depots:
+            for _ in range(vehicles_per_depot):
+                vehicle = self.generate_vehicle(vehicle_id_counter, depot)
+                all_vehicles.append(vehicle)
+                vehicle_id_counter += 1
+        
+        return all_vehicles
     
     def generate_instance(
         self, 
         num_orders: int = None, 
         num_vehicles: int = None,
-        shared_pickups: bool = True
-    ) -> Tuple[Node, List[Order], List[Vehicle]]:
+        shared_pickups: bool = True,
+        multi_depot: bool = True
+    ) -> Tuple[List[Node], List[Order], List[Vehicle]]:
         """
         生成完整的问题实例
         
         Args:
-            shared_pickups: 是否使用共享取货点（默认True，取货点数不超过订单数1/3）
+            num_orders: 订单数量
+            num_vehicles: 每个站点的骑手数量
+            shared_pickups: 是否使用共享取货点（默认True）
+            multi_depot: 是否使用多站点（默认True，使用5个站点）
         
         Returns:
-            (depot, orders, vehicles)
+            (depots, orders, vehicles)
         """
         num_orders = num_orders or config.NUM_ORDERS
         num_vehicles = num_vehicles or config.NUM_VEHICLES
         
-        depot = self.generate_depot()
+        if multi_depot:
+            # 多站点模式
+            depots = self.generate_depots()
+            vehicles = self.generate_vehicles_multi_depot(depots, num_vehicles)
+        else:
+            # 单站点模式（向后兼容）
+            depots = [self.generate_depot()]
+            vehicles = self.generate_vehicles(num_vehicles, depots[0])
+        
+        # 生成订单
         if shared_pickups:
             orders = self.generate_orders_with_shared_pickups(num_orders)
         else:
             orders = self.generate_orders(num_orders)
-        vehicles = self.generate_vehicles(num_vehicles, depot)
         
-        return depot, orders, vehicles
+        return depots, orders, vehicles
     
     def generate_solution(
         self, 
         num_orders: int = None, 
         num_vehicles: int = None,
-        shared_pickups: bool = True
+        shared_pickups: bool = True,
+        multi_depot: bool = True
     ) -> Solution:
         """
         生成包含问题实例的空解
         
         Args:
+            num_orders: 订单数量
+            num_vehicles: 每个站点的骑手数量
             shared_pickups: 是否使用共享取货点
+            multi_depot: 是否使用多站点（默认True）
         
         Returns:
-            初始化的Solution对象 (所有订单未分配)
+            初始化的Solution对象（所有订单未分配）
         """
-        depot, orders, vehicles = self.generate_instance(num_orders, num_vehicles, shared_pickups)
-        return Solution(vehicles, orders, depot)
+        depots, orders, vehicles = self.generate_instance(
+            num_orders, num_vehicles, shared_pickups, multi_depot
+        )
+        
+        # 注意：Solution构造函数需要修改以支持多站点
+        # 这里使用第一个depot作为主depot（向后兼容）
+        solution = Solution(vehicles, orders, depots[0])
+        
+        # 存储所有站点信息
+        solution.depots = depots
+        
+        return solution
     
     def generate_clustered_instance(
         self,
@@ -396,16 +505,18 @@ def generate_problem_instance(
     num_orders: int = None,
     num_vehicles: int = None,
     random_seed: int = None,
-    clustered: bool = False
+    clustered: bool = False,
+    multi_depot: bool = True
 ) -> Solution:
     """
     便捷函数: 生成问题实例
     
     Args:
         num_orders: 订单数量
-        num_vehicles: 骑手数量
+        num_vehicles: 骑手数量（如果multi_depot=True，则为每站点骑手数）
         random_seed: 随机种子
-        clustered: 是否使用聚类分布
+        clustered: 是否使用聚类分布（默认False）
+        multi_depot: 是否使用多站点模式（默认True，5个站点）
     
     Returns:
         初始化的Solution对象
@@ -415,4 +526,4 @@ def generate_problem_instance(
     if clustered:
         return generator.generate_clustered_instance(num_orders, num_vehicles)
     else:
-        return generator.generate_solution(num_orders, num_vehicles)
+        return generator.generate_solution(num_orders, num_vehicles, multi_depot=multi_depot)

@@ -32,6 +32,7 @@ class ALNS(BaseSolver):
     2. 多种破坏和修复算子
     3. 自适应选择算子 (根据历史表现调整权重)
     4. 使用模拟退火作为接受准则
+    5. 参数根据问题规模自适应调整
     """
     
     def __init__(
@@ -41,16 +42,27 @@ class ALNS(BaseSolver):
         cooling_rate: float = None,
         min_temperature: float = None,
         random_seed: int = None,
-        verbose: bool = True
+        verbose: bool = True,
+        num_orders: int = None,  # 用于自适应参数调整
+        num_vehicles: int = None  # 用于候选骑手筛选优化
     ):
         # 调用父类构造函数
         super().__init__(random_seed=random_seed, verbose=verbose)
         
-        # 算法参数
+        # 保存订单数量用于自适应调整
+        self._num_orders = num_orders
+        self._num_vehicles = num_vehicles
+        
+        # 算法参数（根据问题规模自适应）
         self.max_iterations = max_iterations or config.MAX_ITERATIONS
         self.initial_temperature = initial_temperature or config.INITIAL_TEMPERATURE
-        self.cooling_rate = cooling_rate or config.COOLING_RATE
         self.min_temperature = min_temperature or config.MIN_TEMPERATURE
+        
+        # 冷却率根据问题规模自适应调整
+        if cooling_rate is not None:
+            self.cooling_rate = cooling_rate
+        else:
+            self.cooling_rate = self._adaptive_cooling_rate(num_orders)
         
         # 随机种子
         if random_seed is not None:
@@ -60,9 +72,9 @@ class ALNS(BaseSolver):
         # 目标函数
         self.objective = ObjectiveFunction()
         
-        # 算子
+        # 算子（传入骑手数量用于空间筛选优化）
         self.destroy_ops = DestroyOperators(random_seed=random_seed)
-        self.repair_ops = RepairOperators(random_seed=random_seed)
+        self.repair_ops = RepairOperators(random_seed=random_seed, num_vehicles=num_vehicles)
         
         # 初始解生成器
         self.greedy = GreedyInsertion(self.objective)
@@ -77,21 +89,58 @@ class ALNS(BaseSolver):
         self.sigma_2 = config.SIGMA_2  # 比当前解更好
         self.sigma_3 = config.SIGMA_3  # 接受了差解
     
-    def _calculate_initial_temperature(self, initial_cost: float, tau: float = 0.05) -> float:
+    def _adaptive_cooling_rate(self, num_orders: int = None) -> float:
+        """
+        根据问题规模自适应计算冷却率
+        
+        健康的收敛曲线需要三个阶段：
+        1. 快速下降期：高温，接受差解，快速探索
+        2. 震荡寻优期：中温，偶尔接受差解，跳出局部最优
+        3. 平稳收敛期：低温，只接受更优解
+        
+        冷却率决定了从高温到低温的速度：
+        - 太快：过早收敛，陷入局部最优
+        - 太慢：收敛缓慢，浪费计算资源
+        
+        Args:
+            num_orders: 订单数量
+            
+        Returns:
+            冷却率
+        """
+        if num_orders is None:
+            return config.COOLING_RATE
+        
+        # 根据问题规模调整
+        # 大规模问题需要更慢的冷却（更多探索时间）
+        if num_orders <= 20:
+            return 0.995   # 小规模：较快冷却
+        elif num_orders <= 50:
+            return 0.9975  # 中规模
+        elif num_orders <= 100:
+            return 0.998   # 较大规模
+        else:
+            return 0.999   # 大规模：慢冷却
+    
+    def _calculate_initial_temperature(
+        self, 
+        initial_cost: float, 
+        num_orders: int = 20
+    ) -> float:
         """
         自适应计算初始温度
         
-        参考ALNS标准方法：
+        根据 SA 原理，初始温度应使接受差解的概率 P ≈ 50%
         T0 = -delta / ln(0.5)
-        其中 delta = tau * initial_cost
         
-        tau参数控制初始接受概率：
-        - tau越大，初始温度越高，接受差解的概率越大
-        - 通常取值范围：0.01 - 0.1
+        优化策略：
+        1. tau 参数根据问题规模动态调整
+        2. 小规模问题需要更高探索率，大规模问题需要更稳定
+        3. 确保初始温度足够高以避免过早收敛
         
         Args:
             initial_cost: 初始解的成本
-            tau: 温度控制参数
+            num_orders: 订单数量（用于调整tau）
             
         Returns:
             初始温度
@@ -99,12 +148,31 @@ class ALNS(BaseSolver):
         if initial_cost <= 0:
             return self.initial_temperature
         
+        # 根据问题规模动态调整tau
+        # 小规模：需要更多探索，使用较大的tau
+        # 大规模：解空间大，使用较小的tau避免过度随机
+        if num_orders <= 20:
+            tau = 0.08  # 小规模: 高探索
+        elif num_orders <= 50:
+            tau = 0.06  # 中规模
+        elif num_orders <= 100:
+            tau = 0.05  # 较大规模
+        else:
+            tau = 0.04  # 大规模
+        
+        # 计算初始温度: T0 = -delta / ln(0.5)
+        # delta 表示平均成本变化量
         delta = tau * initial_cost
-        # ln(0.5) ≈ -0.693
-        temperature = -delta / np.log(0.5)
+        temperature = -delta / np.log(0.5)  # ln(0.5) ≈ -0.693
+        
+        # 确保温度在合理范围内
+        # 最低不能低于成本的0.5%，最高不超过成本的20%
+        min_temp = initial_cost * 0.005
+        max_temp = initial_cost * 0.20
+        temperature = max(min_temp, min(max_temp, temperature))
         
         if self.verbose:
-            print(f"自适应温度初始化: T0 = {temperature:.2f} (基于初始成本 {initial_cost:.2f})")
+            print(f"自适应温度初始化: T0 = {temperature:.2f} (tau={tau}, 基于初始成本 {initial_cost:.2f})")
         
         return round(temperature, 4)
     
@@ -141,10 +209,21 @@ class ALNS(BaseSolver):
             print(f"未分配订单: {current_solution.num_unassigned}")
             print("-" * 60)
         
-        # 自适应温度初始化（参考ALNS标准方法）
+        # 自适应温度初始化（根据问题规模调整）
         # T0 = -delta / ln(0.5)，其中delta = tau * initial_cost
-        # tau参数控制初始接受概率
-        temperature = self._calculate_initial_temperature(current_cost)
+        # tau参数根据订单数量动态调整
+        num_orders = len(initial_solution.orders)
+        num_vehicles = len(initial_solution.vehicles)
+        temperature = self._calculate_initial_temperature(current_cost, num_orders)
+        
+        # 根据问题规模自适应调整冷却率（如果未在构造函数中设置）
+        if self._num_orders is None:
+            self._num_orders = num_orders
+            self.cooling_rate = self._adaptive_cooling_rate(num_orders)
+        
+        if self.verbose:
+            print(f"冷却率: {self.cooling_rate} (自适应，订单数={num_orders})")
+            print(f"候选骑手筛选: 启用，最多{self.repair_ops.max_candidates}个候选")
         
         # 主循环
         iterations_since_improvement = 0
@@ -344,7 +423,9 @@ def solve_pdptw(
     initial_solution: Solution,
     max_iterations: int = None,
     random_seed: int = None,
-    verbose: bool = True
+    verbose: bool = True,
+    num_orders: int = None,
+    num_vehicles: int = None
 ) -> Solution:
     """
     便捷函数: 求解PDPTW问题
@@ -354,14 +435,24 @@ def solve_pdptw(
         max_iterations: 最大迭代次数
         random_seed: 随机种子
         verbose: 是否输出过程信息
+        num_orders: 订单数量（用于自适应参数）
+        num_vehicles: 骑手数量（用于候选筛选优化）
     
     Returns:
         最优解
     """
+    # 自动推断订单和骑手数量
+    if num_orders is None:
+        num_orders = len(initial_solution.orders)
+    if num_vehicles is None:
+        num_vehicles = len(initial_solution.vehicles)
+    
     alns = ALNS(
         max_iterations=max_iterations,
         random_seed=random_seed,
-        verbose=verbose
+        verbose=verbose,
+        num_orders=num_orders,
+        num_vehicles=num_vehicles
     )
     
     return alns.solve(initial_solution)
