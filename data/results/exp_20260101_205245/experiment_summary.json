@@ -1,0 +1,31 @@
+{
+  "experiment_name": "exp_20260101_205245",
+  "timestamp": "2026-01-01T20:52:46.023161",
+  "solver": "ALNS",
+  "problem": {
+    "num_orders": 500,
+    "num_vehicles": 20,
+    "random_seed": 42
+  },
+  "timing": {
+    "generation_time_seconds": 0.31798386573791504,
+    "solve_time_seconds": 884.2439167499542,
+    "total_time_seconds": 884.5619006156921
+  },
+  "results": {
+    "total_cost": 242369.1785248066,
+    "total_distance": 12121.06715194552,
+    "total_time_violation": 22024.81113728611,
+    "num_vehicles_used": 100,
+    "num_unassigned": 0,
+    "is_feasible": false
+  },
+  "solver_specific": {
+    "solver_type": "alns-dc",
+    "num_orders": 500,
+    "num_vehicles": 20,
+    "random_seed": 42,
+    "max_iterations": 500,
+    "total_iterations": 200
+  }
+}
